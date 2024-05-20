@@ -8,4 +8,16 @@ package constants
 const (
 	// SpanTypeTest marks a span as a test execution.
 	SpanTypeTest = "test"
+
+	// SpanTypeTestSuite marks a span as a test suite
+	SpanTypeTestSuite = "test_suite_end"
+
+	// SpanTypeTestModule marks a span as a test module
+	SpanTypeTestModule = "test_module_end"
+
+	// SpanTypeTestSession marks a span as a test session
+	SpanTypeTestSession = "test_session_end"
+
+	// SpanTypeSpan marks a span as a span event
+	SpanTypeSpan = "span"
 )
