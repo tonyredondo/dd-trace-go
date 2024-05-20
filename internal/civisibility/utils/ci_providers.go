@@ -131,18 +131,6 @@ func normalizeRef(name string) string {
 	return string(tags.ReplaceAll(origin.ReplaceAll(refs.ReplaceAll([]byte(name), empty), empty), empty)[:])
 }
 
-func lookupEnvs(keys ...string) ([]string, bool) {
-	values := make([]string, len(keys))
-	for _, key := range keys {
-		value, ok := os.LookupEnv(key)
-		if !ok {
-			return nil, false
-		}
-		values = append(values, value)
-	}
-	return values, true
-}
-
 func firstEnv(keys ...string) string {
 	for _, key := range keys {
 		if value, ok := os.LookupEnv(key); ok {
