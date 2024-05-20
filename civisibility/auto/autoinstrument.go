@@ -21,20 +21,28 @@ var (
 	contextMap   = map[*testing.T]context.Context{}
 )
 
+type T testing.T
+type M testing.M
+
 // Implementation for auto instrumentation
 
-func Run(t *testing.T, name string, f func(t *testing.T)) bool {
-	return t.Run(name, func(t *testing.T) {
-		_, finish := civisibility.StartTestWithContext(GetContext(t), t, civisibility.WithOriginalTestFunc(f))
+func (t *T) Run(name string, f func(t *testing.T)) bool {
+	return (*testing.T)(t).Run(name, func(innerT *testing.T) {
+		_, finish := civisibility.StartTestWithContext(GetContext(innerT), innerT, civisibility.WithOriginalTestFunc(f))
 		defer finish()
-		f(t)
+		f(innerT)
 	})
 }
 
-func RunM(m *testing.M) int {
+func Run(t *testing.T, name string, f func(t *testing.T)) bool {
+	return (*T)(t).Run(name, f)
+}
+
+func (m *M) Run() int {
+	testingM := (*testing.M)(m)
 
 	// Let's access to the inner Test array and instrument them
-	internalTests := getInternalTestArray(m)
+	internalTests := getInternalTestArray(testingM)
 	if internalTests != nil {
 		newTestArray := make([]testing.InternalTest, len(*internalTests))
 		for idx, test := range *internalTests {
@@ -51,10 +59,14 @@ func RunM(m *testing.M) int {
 		*internalTests = newTestArray
 	}
 
-	return civisibility.Run(m)
+	return civisibility.Run(testingM)
 }
 
-func RunTestMain(m *testing.M) {
+func RunM(m *testing.M) int {
+	return (*M)(m).Run()
+}
+
+func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
 }
 
