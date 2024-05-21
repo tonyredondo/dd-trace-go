@@ -26,13 +26,13 @@ const (
 var _ transport = (*civisibilityTransport)(nil)
 
 type civisibilityTransport struct {
-	testCycleUrlPath    string            // the test cycle evp intake path
-	client              *http.Client      // the HTTP client used in the POST
-	headers             map[string]string // the transport headers
-	useEvpProxyEndpoint bool              // a flag to specify if the transport should connect using the agent EVP proxy or agentless
+	config           *config           // config holds the tracer configuration
+	testCycleUrlPath string            // the test cycle evp intake path
+	client           *http.Client      // the HTTP client used in the POST
+	headers          map[string]string // the transport headers
 }
 
-func newCiVisibilityTransport(agentUrl string, client *http.Client) *civisibilityTransport {
+func newCiVisibilityTransport(config *config) *civisibilityTransport {
 	// initialize the default EncoderPool with Encoder headers
 	defaultHeaders := map[string]string{
 		"Datadog-Meta-Lang":             "go",
@@ -78,20 +78,20 @@ func newCiVisibilityTransport(agentUrl string, client *http.Client) *civisibilit
 	} else {
 		// Agent mode with EvP proxy
 		defaultHeaders["X-Datadog-EVP-Subdomain"] = TestCycleSubdomain
-		testCycleUrl = fmt.Sprintf("%s/%s/%s", agentUrl, EvpProxyPath, TestCyclePath)
+		testCycleUrl = fmt.Sprintf("%s/%s/%s", config.agentURL.String(), EvpProxyPath, TestCyclePath)
 	}
 
 	return &civisibilityTransport{
-		testCycleUrlPath:    testCycleUrl,
-		client:              client,
-		headers:             defaultHeaders,
-		useEvpProxyEndpoint: false,
+		config:           config,
+		testCycleUrlPath: testCycleUrl,
+		client:           config.httpClient,
+		headers:          defaultHeaders,
 	}
 }
 
 func (t *civisibilityTransport) send(p *payload) (body io.ReadCloser, err error) {
-	ciVisibilityPayload := &civisibilitypayload{*p}
-	buffer, bufferErr := ciVisibilityPayload.GetBuffer()
+	ciVisibilityPayload := &civisibilitypayload{p}
+	buffer, bufferErr := ciVisibilityPayload.GetBuffer(t.config)
 	if bufferErr != nil {
 		return nil, fmt.Errorf("cannot create buffer payload: %v", bufferErr)
 	}

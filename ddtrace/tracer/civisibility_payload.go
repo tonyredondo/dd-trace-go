@@ -7,14 +7,15 @@ package tracer
 
 import (
 	"bytes"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
 	"sync/atomic"
 
 	"github.com/tinylib/msgp/msgp"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/version"
 )
 
 type civisibilitypayload struct {
-	payload
+	*payload
 }
 
 // push pushes a new item into the stream.
@@ -29,24 +30,31 @@ func (p *civisibilitypayload) push(event *ciVisibilityEvent) error {
 }
 
 func newCiVisibilityPayload() *civisibilitypayload {
-	return &civisibilitypayload{*newPayload()}
+	return &civisibilitypayload{newPayload()}
 }
 
 // Get complete civisibility payload
-func (p *civisibilitypayload) GetBuffer() (*bytes.Buffer, error) {
+func (p *civisibilitypayload) GetBuffer(config *config) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(&p.payload)
+	_, err := buf.ReadFrom(p.payload)
 	if err != nil {
 		return nil, err
+	}
+
+	allMetadata := map[string]string{
+		"language":        "go",
+		"runtime-id":      globalconfig.RuntimeID(),
+		"library_version": version.Tag,
+	}
+
+	if config.env != "" {
+		allMetadata["env"] = config.env
 	}
 
 	visibilityPayload := ciTestCyclePayload{
 		Version: 1,
 		Metadata: map[string]map[string]string{
-			"*": {
-				"language":   "go",
-				"runtime-id": globalconfig.RuntimeID(),
-			},
+			"*": allMetadata,
 		},
 		Events: buf.Bytes(),
 	}
@@ -56,6 +64,12 @@ func (p *civisibilitypayload) GetBuffer() (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	reader := bytes.NewReader(buf.Bytes())
+	writer := new(bytes.Buffer)
+	msgp.CopyToJSON(writer, reader)
+	json := writer.String()
+	_ = json
 
 	return buf, nil
 }

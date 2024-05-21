@@ -6,9 +6,11 @@
 package tracer
 
 import (
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"sync"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
 const (
@@ -47,6 +49,11 @@ func newCiVisibilityTraceWriter(c *config) *ciVisibilityTraceWriter {
 
 func (w *ciVisibilityTraceWriter) add(trace []*span) {
 	for _, s := range trace {
+		if s.Type == constants.SpanTypeTest {
+			s.setMeta(constants.TestSessionIdTagName, "1")
+			s.setMeta(constants.TestModuleIdTagName, "1")
+			s.setMeta(constants.TestSuiteIdTagName, "1")
+		}
 		if err := w.payload.push(getCiVisibilityEvent(s)); err != nil {
 			log.Error("Error encoding msgpack: %v", err)
 		}
@@ -88,7 +95,7 @@ func (w *ciVisibilityTraceWriter) flush() {
 		for attempt := 0; attempt <= w.config.sendRetries; attempt++ {
 			size, count = p.size(), p.itemCount()
 			log.Debug("Sending payload: size: %d traces: %d\n", size, count)
-			_, err = w.config.transport.send(&p.payload)
+			_, err = w.config.transport.send(p.payload)
 			if err == nil {
 				log.Debug("sent traces after %d attempts", attempt+1)
 				return

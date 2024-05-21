@@ -462,7 +462,7 @@ func newConfig(opts ...StartOption) *config {
 		}
 	}
 	if c.ciVisibilityEnabled {
-		c.transport = newCiVisibilityTransport(c.agentURL.String(), c.httpClient)
+		c.transport = newCiVisibilityTransport(c)
 	} else if c.transport == nil {
 		c.transport = newHTTPTransport(c.agentURL.String(), c.httpClient)
 	}
