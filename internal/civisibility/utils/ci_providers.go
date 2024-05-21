@@ -55,7 +55,7 @@ func getEnvVarsJson(envVars ...string) ([]byte, error) {
 }
 
 // GetProviderTags extracts CI information from environment variables.
-func GetProviderTags() map[string]string {
+func getProviderTags() map[string]string {
 	tags := map[string]string{}
 	for key, provider := range providers {
 		if _, ok := os.LookupEnv(key); !ok {

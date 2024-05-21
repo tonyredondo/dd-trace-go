@@ -36,11 +36,11 @@ type FinishFunc func()
 // Run is a helper function to run a `testing.M` object and gracefully stopping the tracer afterwards
 func Run(m *testing.M, opts ...tracer.StartOption) int {
 	// Preload all CI and Git tags.
-	ensureCITags()
+	ciTags := utils.GetCiTags()
 
 	// Check if DD_SERVICE has been set; otherwise we default to repo name.
 	if v := os.Getenv("DD_SERVICE"); v == "" {
-		if repoUrl, ok := getFromCITags(constants.GitRepositoryURL); ok {
+		if repoUrl, ok := ciTags[constants.GitRepositoryURL]; ok {
 			matches := repoRegex.FindStringSubmatch(repoUrl)
 			if len(matches) > 1 {
 				repoUrl = strings.TrimSuffix(matches[1], ".git")
@@ -103,7 +103,7 @@ func StartTestWithContext(ctx context.Context, tb TB, opts ...Option) (context.C
 		pc = reflect.Indirect(reflect.ValueOf(cfg.originalTestFunc)).Pointer()
 	}
 
-	suite, _ := utils.GetPackageAndName(pc)
+	suite, _, file, line := utils.GetPackageAndName(pc)
 	name := tb.Name()
 	fqn := fmt.Sprintf("%s.%s", suite, name)
 
@@ -113,6 +113,8 @@ func StartTestWithContext(ctx context.Context, tb TB, opts ...Option) (context.C
 		tracer.Tag(constants.TestSuite, suite),
 		tracer.Tag(constants.TestFramework, testFramework),
 		tracer.Tag(constants.Origin, constants.CIAppTestOrigin),
+		tracer.Tag(constants.TestSourceFile, file),
+		tracer.Tag(constants.TestSourceStartLine, line),
 	}
 
 	switch tb.(type) {

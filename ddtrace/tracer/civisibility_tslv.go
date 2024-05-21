@@ -103,15 +103,28 @@ func getCiVisibilityEvent(span *span) *ciVisibilityEvent {
 }
 
 func getSpanFromCiVisibilityEvent(civisibilityEvent *ciVisibilityEvent) *span {
-	return civisibilityEvent.span
+	s := civisibilityEvent.span
+	if civisibilityEvent.Content.SessionId != 0 {
+		s.SetTag(constants.TestSessionIdTagName, civisibilityEvent.Content.SessionId)
+	}
+	if civisibilityEvent.Content.ModuleId != 0 {
+		s.SetTag(constants.TestModuleIdTagName, civisibilityEvent.Content.ModuleId)
+	}
+	if civisibilityEvent.Content.SuiteId != 0 {
+		s.SetTag(constants.TestSuiteIdTagName, civisibilityEvent.Content.SuiteId)
+	}
+	if civisibilityEvent.Content.CorrelationId != "" {
+		s.SetTag(constants.ItrCorrelationIdTagName, civisibilityEvent.Content.CorrelationId)
+	}
+	return s
 }
 
 func createTestEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
-	tSpan.SessionId = getAndRemoveMetaToUInt64(span, "test_session_id")
-	tSpan.ModuleId = getAndRemoveMetaToUInt64(span, "test_module_id")
-	tSpan.SuiteId = getAndRemoveMetaToUInt64(span, "test_suite_id")
-	tSpan.CorrelationId = getAndRemoveMeta(span, "itr_correlation_id")
+	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
+	tSpan.ModuleId = getAndRemoveMetaToUInt64(span, constants.TestModuleIdTagName)
+	tSpan.SuiteId = getAndRemoveMetaToUInt64(span, constants.TestSuiteIdTagName)
+	tSpan.CorrelationId = getAndRemoveMeta(span, constants.ItrCorrelationIdTagName)
 	tSpan.SpanID = span.SpanID
 	tSpan.TraceID = span.TraceID
 	return &ciVisibilityEvent{
@@ -124,9 +137,9 @@ func createTestEventFromSpan(span *span) *ciVisibilityEvent {
 
 func createTestSuiteEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
-	tSpan.SessionId = getAndRemoveMetaToUInt64(span, "test_session_id")
-	tSpan.ModuleId = getAndRemoveMetaToUInt64(span, "test_module_id")
-	tSpan.SuiteId = getAndRemoveMetaToUInt64(span, "test_suite_id")
+	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
+	tSpan.ModuleId = getAndRemoveMetaToUInt64(span, constants.TestModuleIdTagName)
+	tSpan.SuiteId = getAndRemoveMetaToUInt64(span, constants.TestSuiteIdTagName)
 	return &ciVisibilityEvent{
 		span:    span,
 		Type:    constants.SpanTypeTestSuite,
@@ -137,8 +150,8 @@ func createTestSuiteEventFromSpan(span *span) *ciVisibilityEvent {
 
 func createTestModuleEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
-	tSpan.SessionId = getAndRemoveMetaToUInt64(span, "test_session_id")
-	tSpan.ModuleId = getAndRemoveMetaToUInt64(span, "test_module_id")
+	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
+	tSpan.ModuleId = getAndRemoveMetaToUInt64(span, constants.TestModuleIdTagName)
 	return &ciVisibilityEvent{
 		span:    span,
 		Type:    constants.SpanTypeTestModule,
@@ -149,7 +162,7 @@ func createTestModuleEventFromSpan(span *span) *ciVisibilityEvent {
 
 func createTestSessionEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
-	tSpan.SessionId = getAndRemoveMetaToUInt64(span, "test_session_id")
+	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
 	return &ciVisibilityEvent{
 		span:    span,
 		Type:    constants.SpanTypeTestSession,

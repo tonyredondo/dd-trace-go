@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type LocalGitData struct {
+type localGitData struct {
 	SourceRoot     string
 	RepositoryUrl  string
 	Branch         string
@@ -30,9 +30,9 @@ type LocalGitData struct {
 
 var regexpSensitiveInfo = regexp.MustCompile("(https?://)[^/]*@")
 
-// LocalGetGitData get the git data from the HEAD in Git repository
-func LocalGetGitData() (LocalGitData, error) {
-	gitData := LocalGitData{}
+// getLocalGitData get the git data from the HEAD in Git repository
+func getLocalGitData() (localGitData, error) {
+	gitData := localGitData{}
 
 	// Extract git working folder
 	out, err := exec.Command("git", "rev-parse", "--absolute-git-dir").Output()

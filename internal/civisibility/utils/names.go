@@ -29,8 +29,10 @@ import (
 //	output:
 //	   suite: github.com/DataDog/dd-sdk-go-testing
 //	   name: TestRun.func1
-func GetPackageAndName(pc uintptr) (suite string, name string) {
-	funcFullName := runtime.FuncForPC(pc).Name()
+func GetPackageAndName(pc uintptr) (suite string, name string, file string, line int) {
+	funcValue := runtime.FuncForPC(pc)
+	file, line = funcValue.FileLine(funcValue.Entry())
+	funcFullName := funcValue.Name()
 	lastSlash := strings.LastIndexByte(funcFullName, '/')
 	if lastSlash < 0 {
 		lastSlash = 0
@@ -38,7 +40,7 @@ func GetPackageAndName(pc uintptr) (suite string, name string) {
 	firstDot := strings.IndexByte(funcFullName[lastSlash:], '.') + lastSlash
 	packName := funcFullName[:firstDot]
 	funcName := funcFullName[firstDot+1:]
-	return packName, funcName
+	return packName, funcName, file, line
 }
 
 func GetStacktrace(skip int) string {

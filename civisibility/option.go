@@ -6,29 +6,18 @@
 package civisibility
 
 import (
-	"runtime"
-	"sync"
-	"testing"
-
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/osinfo"
-)
-
-var (
-	// tags contains information detected from CI/CD environment variables.
-	tags     map[string]string
-	tagsOnce sync.Once
 )
 
 type config struct {
 	skip             int
 	spanOpts         []ddtrace.StartSpanOption
 	finishOpts       []ddtrace.FinishOption
-	originalTestFunc func(*testing.T)
+	originalTestFunc any
 }
 
 // Option represents an option that can be passed to NewServeMux or WrapHandler.
@@ -43,83 +32,12 @@ func defaults(cfg *config) {
 		tracer.Tag(ext.ManualKeep, true),
 	}
 
-	// Ensure CI tags
-	ensureCITags()
-	forEachCITags(func(k, v string) {
+	// Apply CI tags
+	for k, v := range utils.GetCiTags() {
 		cfg.spanOpts = append(cfg.spanOpts, tracer.Tag(k, v))
-	})
+	}
 
 	cfg.finishOpts = []ddtrace.FinishOption{}
-}
-
-func ensureCITags() {
-	tagsOnce.Do(ensureCITagsLocked)
-}
-
-func ensureCITagsLocked() {
-	localTags := utils.GetProviderTags()
-	localTags[constants.OSPlatform] = runtime.GOOS
-	localTags[constants.OSVersion] = osinfo.OSVersion()
-	localTags[constants.OSArchitecture] = runtime.GOARCH
-	localTags[constants.RuntimeName] = runtime.Compiler
-	localTags[constants.RuntimeVersion] = runtime.Version()
-
-	gitData, _ := utils.LocalGetGitData()
-
-	// Guess Git metadata from a local Git repository otherwise.
-	if _, ok := localTags[constants.CIWorkspacePath]; !ok {
-		localTags[constants.CIWorkspacePath] = gitData.SourceRoot
-	}
-	if _, ok := localTags[constants.GitRepositoryURL]; !ok {
-		localTags[constants.GitRepositoryURL] = gitData.RepositoryUrl
-	}
-	if _, ok := localTags[constants.GitCommitSHA]; !ok {
-		localTags[constants.GitCommitSHA] = gitData.CommitSha
-	}
-	if _, ok := localTags[constants.GitBranch]; !ok {
-		localTags[constants.GitBranch] = gitData.Branch
-	}
-
-	if localTags[constants.GitCommitSHA] == gitData.CommitSha {
-		if _, ok := localTags[constants.GitCommitAuthorDate]; !ok {
-			localTags[constants.GitCommitAuthorDate] = gitData.AuthorDate.String()
-		}
-		if _, ok := localTags[constants.GitCommitAuthorName]; !ok {
-			localTags[constants.GitCommitAuthorName] = gitData.AuthorName
-		}
-		if _, ok := localTags[constants.GitCommitAuthorEmail]; !ok {
-			localTags[constants.GitCommitAuthorEmail] = gitData.AuthorEmail
-		}
-		if _, ok := localTags[constants.GitCommitCommitterDate]; !ok {
-			localTags[constants.GitCommitCommitterDate] = gitData.CommitterDate.String()
-		}
-		if _, ok := localTags[constants.GitCommitCommitterName]; !ok {
-			localTags[constants.GitCommitCommitterName] = gitData.CommitterName
-		}
-		if _, ok := localTags[constants.GitCommitCommitterEmail]; !ok {
-			localTags[constants.GitCommitCommitterEmail] = gitData.CommitterEmail
-		}
-		if _, ok := localTags[constants.GitCommitMessage]; !ok {
-			localTags[constants.GitCommitMessage] = gitData.CommitMessage
-		}
-	}
-
-	// Replace global tags with local copy
-	tags = localTags
-}
-
-func getFromCITags(key string) (string, bool) {
-	if value, ok := tags[key]; ok {
-		return value, ok
-	}
-
-	return "", false
-}
-
-func forEachCITags(itemFunc func(string, string)) {
-	for k, v := range tags {
-		itemFunc(k, v)
-	}
 }
 
 // WithSpanOptions defines a set of additional ddtrace.StartSpanOption to be added
@@ -145,8 +63,8 @@ func WithIncrementSkipFrame() Option {
 	}
 }
 
-// WithOriginalTestFunc sets the original test function
-func WithOriginalTestFunc(f func(*testing.T)) Option {
+// WithOriginalTestFunc sets the original test function used to extract the suite and name
+func WithOriginalTestFunc(f any) Option {
 	return func(cfg *config) {
 		cfg.originalTestFunc = f
 	}
