@@ -270,6 +270,9 @@ type config struct {
 	// dynamicInstrumentationEnabled controls if the target application can be modified by Dynamic Instrumentation or not.
 	// Value from DD_DYNAMIC_INSTRUMENTATION_ENABLED, default false.
 	dynamicInstrumentationEnabled bool
+
+	// ciVisibilityEnabled controls if the tracer is loaded with CI Visibility mode. default false
+	ciVisibilityEnabled bool
 }
 
 // orchestrionConfig contains Orchestrion configuration.
@@ -301,7 +304,14 @@ const partialFlushMinSpansDefault = 1000
 func newConfig(opts ...StartOption) *config {
 	c := new(config)
 	c.sampler = NewAllSampler()
-	c.httpClientTimeout = time.Second * 10 // 10 seconds
+	// Check if Ci Visibility mode has been enabled
+	c.ciVisibilityEnabled = internal.BoolEnv("DD_CIVISIBILITY_ENABLED", false)
+
+	if c.ciVisibilityEnabled {
+		c.httpClientTimeout = time.Second * 45 // 45 seconds
+	} else {
+		c.httpClientTimeout = time.Second * 10 // 10 seconds
+	}
 
 	if internal.BoolEnv("DD_TRACE_ANALYTICS_ENABLED", false) {
 		globalconfig.SetAnalyticsRate(1.0)
@@ -404,6 +414,7 @@ func newConfig(opts ...StartOption) *config {
 	for _, fn := range opts {
 		fn(c)
 	}
+
 	if c.agentURL == nil {
 		c.agentURL = resolveAgentAddr()
 		if url := internal.AgentURLFromEnv(); url != nil {
@@ -450,7 +461,9 @@ func newConfig(opts ...StartOption) *config {
 			c.serviceName = filepath.Base(os.Args[0])
 		}
 	}
-	if c.transport == nil {
+	if c.ciVisibilityEnabled {
+		c.transport = newCiVisibilityTransport(c.agentURL.String(), c.httpClient)
+	} else if c.transport == nil {
 		c.transport = newHTTPTransport(c.agentURL.String(), c.httpClient)
 	}
 	if c.propagator == nil {

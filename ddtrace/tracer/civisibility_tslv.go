@@ -16,21 +16,29 @@ import (
 )
 
 type (
-	// ciVisibilityPayloadList implements msgp.Decodable on top of a slice of ciVisibilityPayloads.
+	// ciTestCyclePayloadList implements msgp.Decodable on top of a slice of ciVisibilityPayloads.
 	// This type is only used in tests.
-	ciVisibilityPayloadList []*ciVisibilityPayload
+	ciTestCyclePayloadList []*ciTestCyclePayload
+
+	ciVisibilityEvents []*ciVisibilityEvent
 )
 
 var (
 	_ ddtrace.Span   = (*ciVisibilityEvent)(nil)
-	_ msgp.Encodable = (*ciVisibilityPayload)(nil)
-	_ msgp.Decodable = (*ciVisibilityPayloadList)(nil)
+	_ msgp.Encodable = (*ciVisibilityEvent)(nil)
+	_ msgp.Decodable = (*ciVisibilityEvent)(nil)
+
+	_ msgp.Encodable = (*ciVisibilityEvents)(nil)
+	_ msgp.Decodable = (*ciVisibilityEvents)(nil)
+
+	_ msgp.Encodable = (*ciTestCyclePayload)(nil)
+	_ msgp.Decodable = (*ciTestCyclePayloadList)(nil)
 )
 
-type ciVisibilityPayload struct {
+type ciTestCyclePayload struct {
 	Version  int32                        `msg:"version"`  // version of the payload
 	Metadata map[string]map[string]string `msg:"metadata"` // global meta of the payload
-	Events   []*ciVisibilityEvent         `msg:"events"`   // global meta of the payload
+	Events   msgp.Raw                     `msg:"events"`   // global meta of the payload
 }
 
 type ciVisibilityEvent struct {

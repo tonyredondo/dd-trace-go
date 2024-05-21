@@ -7,6 +7,252 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
+func (z *ciTestCyclePayload) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "version":
+			z.Version, err = dc.ReadInt32()
+			if err != nil {
+				err = msgp.WrapError(err, "Version")
+				return
+			}
+		case "metadata":
+			var zb0002 uint32
+			zb0002, err = dc.ReadMapHeader()
+			if err != nil {
+				err = msgp.WrapError(err, "Metadata")
+				return
+			}
+			if z.Metadata == nil {
+				z.Metadata = make(map[string]map[string]string, zb0002)
+			} else if len(z.Metadata) > 0 {
+				for key := range z.Metadata {
+					delete(z.Metadata, key)
+				}
+			}
+			for zb0002 > 0 {
+				zb0002--
+				var za0001 string
+				var za0002 map[string]string
+				za0001, err = dc.ReadString()
+				if err != nil {
+					err = msgp.WrapError(err, "Metadata")
+					return
+				}
+				var zb0003 uint32
+				zb0003, err = dc.ReadMapHeader()
+				if err != nil {
+					err = msgp.WrapError(err, "Metadata", za0001)
+					return
+				}
+				if za0002 == nil {
+					za0002 = make(map[string]string, zb0003)
+				} else if len(za0002) > 0 {
+					for key := range za0002 {
+						delete(za0002, key)
+					}
+				}
+				for zb0003 > 0 {
+					zb0003--
+					var za0003 string
+					var za0004 string
+					za0003, err = dc.ReadString()
+					if err != nil {
+						err = msgp.WrapError(err, "Metadata", za0001)
+						return
+					}
+					za0004, err = dc.ReadString()
+					if err != nil {
+						err = msgp.WrapError(err, "Metadata", za0001, za0003)
+						return
+					}
+					za0002[za0003] = za0004
+				}
+				z.Metadata[za0001] = za0002
+			}
+		case "events":
+			err = z.Events.DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, "Events")
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *ciTestCyclePayload) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 3
+	// write "version"
+	err = en.Append(0x83, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt32(z.Version)
+	if err != nil {
+		err = msgp.WrapError(err, "Version")
+		return
+	}
+	// write "metadata"
+	err = en.Append(0xa8, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61)
+	if err != nil {
+		return
+	}
+	err = en.WriteMapHeader(uint32(len(z.Metadata)))
+	if err != nil {
+		err = msgp.WrapError(err, "Metadata")
+		return
+	}
+	for za0001, za0002 := range z.Metadata {
+		err = en.WriteString(za0001)
+		if err != nil {
+			err = msgp.WrapError(err, "Metadata")
+			return
+		}
+		err = en.WriteMapHeader(uint32(len(za0002)))
+		if err != nil {
+			err = msgp.WrapError(err, "Metadata", za0001)
+			return
+		}
+		for za0003, za0004 := range za0002 {
+			err = en.WriteString(za0003)
+			if err != nil {
+				err = msgp.WrapError(err, "Metadata", za0001)
+				return
+			}
+			err = en.WriteString(za0004)
+			if err != nil {
+				err = msgp.WrapError(err, "Metadata", za0001, za0003)
+				return
+			}
+		}
+	}
+	// write "events"
+	err = en.Append(0xa6, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73)
+	if err != nil {
+		return
+	}
+	err = z.Events.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Events")
+		return
+	}
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *ciTestCyclePayload) Msgsize() (s int) {
+	s = 1 + 8 + msgp.Int32Size + 9 + msgp.MapHeaderSize
+	if z.Metadata != nil {
+		for za0001, za0002 := range z.Metadata {
+			_ = za0002
+			s += msgp.StringPrefixSize + len(za0001) + msgp.MapHeaderSize
+			if za0002 != nil {
+				for za0003, za0004 := range za0002 {
+					_ = za0004
+					s += msgp.StringPrefixSize + len(za0003) + msgp.StringPrefixSize + len(za0004)
+				}
+			}
+		}
+	}
+	s += 7 + z.Events.Msgsize()
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *ciTestCyclePayloadList) DecodeMsg(dc *msgp.Reader) (err error) {
+	var zb0002 uint32
+	zb0002, err = dc.ReadArrayHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	if cap((*z)) >= int(zb0002) {
+		(*z) = (*z)[:zb0002]
+	} else {
+		(*z) = make(ciTestCyclePayloadList, zb0002)
+	}
+	for zb0001 := range *z {
+		if dc.IsNil() {
+			err = dc.ReadNil()
+			if err != nil {
+				err = msgp.WrapError(err, zb0001)
+				return
+			}
+			(*z)[zb0001] = nil
+		} else {
+			if (*z)[zb0001] == nil {
+				(*z)[zb0001] = new(ciTestCyclePayload)
+			}
+			err = (*z)[zb0001].DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, zb0001)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z ciTestCyclePayloadList) EncodeMsg(en *msgp.Writer) (err error) {
+	err = en.WriteArrayHeader(uint32(len(z)))
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0003 := range z {
+		if z[zb0003] == nil {
+			err = en.WriteNil()
+			if err != nil {
+				return
+			}
+		} else {
+			err = z[zb0003].EncodeMsg(en)
+			if err != nil {
+				err = msgp.WrapError(err, zb0003)
+				return
+			}
+		}
+	}
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z ciTestCyclePayloadList) Msgsize() (s int) {
+	s = msgp.ArrayHeaderSize
+	for zb0003 := range z {
+		if z[zb0003] == nil {
+			s += msgp.NilSize
+		} else {
+			s += z[zb0003].Msgsize()
+		}
+	}
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *ciVisibilityEvent) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
@@ -96,288 +342,7 @@ func (z *ciVisibilityEvent) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *ciVisibilityPayload) DecodeMsg(dc *msgp.Reader) (err error) {
-	var field []byte
-	_ = field
-	var zb0001 uint32
-	zb0001, err = dc.ReadMapHeader()
-	if err != nil {
-		err = msgp.WrapError(err)
-		return
-	}
-	for zb0001 > 0 {
-		zb0001--
-		field, err = dc.ReadMapKeyPtr()
-		if err != nil {
-			err = msgp.WrapError(err)
-			return
-		}
-		switch msgp.UnsafeString(field) {
-		case "version":
-			z.Version, err = dc.ReadInt32()
-			if err != nil {
-				err = msgp.WrapError(err, "Version")
-				return
-			}
-		case "metadata":
-			var zb0002 uint32
-			zb0002, err = dc.ReadMapHeader()
-			if err != nil {
-				err = msgp.WrapError(err, "Metadata")
-				return
-			}
-			if z.Metadata == nil {
-				z.Metadata = make(map[string]map[string]string, zb0002)
-			} else if len(z.Metadata) > 0 {
-				for key := range z.Metadata {
-					delete(z.Metadata, key)
-				}
-			}
-			for zb0002 > 0 {
-				zb0002--
-				var za0001 string
-				var za0002 map[string]string
-				za0001, err = dc.ReadString()
-				if err != nil {
-					err = msgp.WrapError(err, "Metadata")
-					return
-				}
-				var zb0003 uint32
-				zb0003, err = dc.ReadMapHeader()
-				if err != nil {
-					err = msgp.WrapError(err, "Metadata", za0001)
-					return
-				}
-				if za0002 == nil {
-					za0002 = make(map[string]string, zb0003)
-				} else if len(za0002) > 0 {
-					for key := range za0002 {
-						delete(za0002, key)
-					}
-				}
-				for zb0003 > 0 {
-					zb0003--
-					var za0003 string
-					var za0004 string
-					za0003, err = dc.ReadString()
-					if err != nil {
-						err = msgp.WrapError(err, "Metadata", za0001)
-						return
-					}
-					za0004, err = dc.ReadString()
-					if err != nil {
-						err = msgp.WrapError(err, "Metadata", za0001, za0003)
-						return
-					}
-					za0002[za0003] = za0004
-				}
-				z.Metadata[za0001] = za0002
-			}
-		case "events":
-			var zb0004 uint32
-			zb0004, err = dc.ReadArrayHeader()
-			if err != nil {
-				err = msgp.WrapError(err, "Events")
-				return
-			}
-			if cap(z.Events) >= int(zb0004) {
-				z.Events = (z.Events)[:zb0004]
-			} else {
-				z.Events = make([]*ciVisibilityEvent, zb0004)
-			}
-			for za0005 := range z.Events {
-				if dc.IsNil() {
-					err = dc.ReadNil()
-					if err != nil {
-						err = msgp.WrapError(err, "Events", za0005)
-						return
-					}
-					z.Events[za0005] = nil
-				} else {
-					if z.Events[za0005] == nil {
-						z.Events[za0005] = new(ciVisibilityEvent)
-					}
-					var zb0005 uint32
-					zb0005, err = dc.ReadMapHeader()
-					if err != nil {
-						err = msgp.WrapError(err, "Events", za0005)
-						return
-					}
-					for zb0005 > 0 {
-						zb0005--
-						field, err = dc.ReadMapKeyPtr()
-						if err != nil {
-							err = msgp.WrapError(err, "Events", za0005)
-							return
-						}
-						switch msgp.UnsafeString(field) {
-						case "type":
-							z.Events[za0005].Type, err = dc.ReadString()
-							if err != nil {
-								err = msgp.WrapError(err, "Events", za0005, "Type")
-								return
-							}
-						case "version":
-							z.Events[za0005].Version, err = dc.ReadInt32()
-							if err != nil {
-								err = msgp.WrapError(err, "Events", za0005, "Version")
-								return
-							}
-						case "content":
-							err = z.Events[za0005].Content.DecodeMsg(dc)
-							if err != nil {
-								err = msgp.WrapError(err, "Events", za0005, "Content")
-								return
-							}
-						default:
-							err = dc.Skip()
-							if err != nil {
-								err = msgp.WrapError(err, "Events", za0005)
-								return
-							}
-						}
-					}
-				}
-			}
-		default:
-			err = dc.Skip()
-			if err != nil {
-				err = msgp.WrapError(err)
-				return
-			}
-		}
-	}
-	return
-}
-
-// EncodeMsg implements msgp.Encodable
-func (z *ciVisibilityPayload) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 3
-	// write "version"
-	err = en.Append(0x83, 0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
-	if err != nil {
-		return
-	}
-	err = en.WriteInt32(z.Version)
-	if err != nil {
-		err = msgp.WrapError(err, "Version")
-		return
-	}
-	// write "metadata"
-	err = en.Append(0xa8, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61)
-	if err != nil {
-		return
-	}
-	err = en.WriteMapHeader(uint32(len(z.Metadata)))
-	if err != nil {
-		err = msgp.WrapError(err, "Metadata")
-		return
-	}
-	for za0001, za0002 := range z.Metadata {
-		err = en.WriteString(za0001)
-		if err != nil {
-			err = msgp.WrapError(err, "Metadata")
-			return
-		}
-		err = en.WriteMapHeader(uint32(len(za0002)))
-		if err != nil {
-			err = msgp.WrapError(err, "Metadata", za0001)
-			return
-		}
-		for za0003, za0004 := range za0002 {
-			err = en.WriteString(za0003)
-			if err != nil {
-				err = msgp.WrapError(err, "Metadata", za0001)
-				return
-			}
-			err = en.WriteString(za0004)
-			if err != nil {
-				err = msgp.WrapError(err, "Metadata", za0001, za0003)
-				return
-			}
-		}
-	}
-	// write "events"
-	err = en.Append(0xa6, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73)
-	if err != nil {
-		return
-	}
-	err = en.WriteArrayHeader(uint32(len(z.Events)))
-	if err != nil {
-		err = msgp.WrapError(err, "Events")
-		return
-	}
-	for za0005 := range z.Events {
-		if z.Events[za0005] == nil {
-			err = en.WriteNil()
-			if err != nil {
-				return
-			}
-		} else {
-			// map header, size 3
-			// write "type"
-			err = en.Append(0x83, 0xa4, 0x74, 0x79, 0x70, 0x65)
-			if err != nil {
-				return
-			}
-			err = en.WriteString(z.Events[za0005].Type)
-			if err != nil {
-				err = msgp.WrapError(err, "Events", za0005, "Type")
-				return
-			}
-			// write "version"
-			err = en.Append(0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
-			if err != nil {
-				return
-			}
-			err = en.WriteInt32(z.Events[za0005].Version)
-			if err != nil {
-				err = msgp.WrapError(err, "Events", za0005, "Version")
-				return
-			}
-			// write "content"
-			err = en.Append(0xa7, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74)
-			if err != nil {
-				return
-			}
-			err = z.Events[za0005].Content.EncodeMsg(en)
-			if err != nil {
-				err = msgp.WrapError(err, "Events", za0005, "Content")
-				return
-			}
-		}
-	}
-	return
-}
-
-// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *ciVisibilityPayload) Msgsize() (s int) {
-	s = 1 + 8 + msgp.Int32Size + 9 + msgp.MapHeaderSize
-	if z.Metadata != nil {
-		for za0001, za0002 := range z.Metadata {
-			_ = za0002
-			s += msgp.StringPrefixSize + len(za0001) + msgp.MapHeaderSize
-			if za0002 != nil {
-				for za0003, za0004 := range za0002 {
-					_ = za0004
-					s += msgp.StringPrefixSize + len(za0003) + msgp.StringPrefixSize + len(za0004)
-				}
-			}
-		}
-	}
-	s += 7 + msgp.ArrayHeaderSize
-	for za0005 := range z.Events {
-		if z.Events[za0005] == nil {
-			s += msgp.NilSize
-		} else {
-			s += 1 + 5 + msgp.StringPrefixSize + len(z.Events[za0005].Type) + 8 + msgp.Int32Size + 8 + z.Events[za0005].Content.Msgsize()
-		}
-	}
-	return
-}
-
-// DecodeMsg implements msgp.Decodable
-func (z *ciVisibilityPayloadList) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *ciVisibilityEvents) DecodeMsg(dc *msgp.Reader) (err error) {
 	var zb0002 uint32
 	zb0002, err = dc.ReadArrayHeader()
 	if err != nil {
@@ -387,7 +352,7 @@ func (z *ciVisibilityPayloadList) DecodeMsg(dc *msgp.Reader) (err error) {
 	if cap((*z)) >= int(zb0002) {
 		(*z) = (*z)[:zb0002]
 	} else {
-		(*z) = make(ciVisibilityPayloadList, zb0002)
+		(*z) = make(ciVisibilityEvents, zb0002)
 	}
 	for zb0001 := range *z {
 		if dc.IsNil() {
@@ -399,12 +364,49 @@ func (z *ciVisibilityPayloadList) DecodeMsg(dc *msgp.Reader) (err error) {
 			(*z)[zb0001] = nil
 		} else {
 			if (*z)[zb0001] == nil {
-				(*z)[zb0001] = new(ciVisibilityPayload)
+				(*z)[zb0001] = new(ciVisibilityEvent)
 			}
-			err = (*z)[zb0001].DecodeMsg(dc)
+			var field []byte
+			_ = field
+			var zb0003 uint32
+			zb0003, err = dc.ReadMapHeader()
 			if err != nil {
 				err = msgp.WrapError(err, zb0001)
 				return
+			}
+			for zb0003 > 0 {
+				zb0003--
+				field, err = dc.ReadMapKeyPtr()
+				if err != nil {
+					err = msgp.WrapError(err, zb0001)
+					return
+				}
+				switch msgp.UnsafeString(field) {
+				case "type":
+					(*z)[zb0001].Type, err = dc.ReadString()
+					if err != nil {
+						err = msgp.WrapError(err, zb0001, "Type")
+						return
+					}
+				case "version":
+					(*z)[zb0001].Version, err = dc.ReadInt32()
+					if err != nil {
+						err = msgp.WrapError(err, zb0001, "Version")
+						return
+					}
+				case "content":
+					err = (*z)[zb0001].Content.DecodeMsg(dc)
+					if err != nil {
+						err = msgp.WrapError(err, zb0001, "Content")
+						return
+					}
+				default:
+					err = dc.Skip()
+					if err != nil {
+						err = msgp.WrapError(err, zb0001)
+						return
+					}
+				}
 			}
 		}
 	}
@@ -412,22 +414,48 @@ func (z *ciVisibilityPayloadList) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z ciVisibilityPayloadList) EncodeMsg(en *msgp.Writer) (err error) {
+func (z ciVisibilityEvents) EncodeMsg(en *msgp.Writer) (err error) {
 	err = en.WriteArrayHeader(uint32(len(z)))
 	if err != nil {
 		err = msgp.WrapError(err)
 		return
 	}
-	for zb0003 := range z {
-		if z[zb0003] == nil {
+	for zb0004 := range z {
+		if z[zb0004] == nil {
 			err = en.WriteNil()
 			if err != nil {
 				return
 			}
 		} else {
-			err = z[zb0003].EncodeMsg(en)
+			// map header, size 3
+			// write "type"
+			err = en.Append(0x83, 0xa4, 0x74, 0x79, 0x70, 0x65)
 			if err != nil {
-				err = msgp.WrapError(err, zb0003)
+				return
+			}
+			err = en.WriteString(z[zb0004].Type)
+			if err != nil {
+				err = msgp.WrapError(err, zb0004, "Type")
+				return
+			}
+			// write "version"
+			err = en.Append(0xa7, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+			if err != nil {
+				return
+			}
+			err = en.WriteInt32(z[zb0004].Version)
+			if err != nil {
+				err = msgp.WrapError(err, zb0004, "Version")
+				return
+			}
+			// write "content"
+			err = en.Append(0xa7, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74)
+			if err != nil {
+				return
+			}
+			err = z[zb0004].Content.EncodeMsg(en)
+			if err != nil {
+				err = msgp.WrapError(err, zb0004, "Content")
 				return
 			}
 		}
@@ -436,13 +464,13 @@ func (z ciVisibilityPayloadList) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z ciVisibilityPayloadList) Msgsize() (s int) {
+func (z ciVisibilityEvents) Msgsize() (s int) {
 	s = msgp.ArrayHeaderSize
-	for zb0003 := range z {
-		if z[zb0003] == nil {
+	for zb0004 := range z {
+		if z[zb0004] == nil {
 			s += msgp.NilSize
 		} else {
-			s += z[zb0003].Msgsize()
+			s += 1 + 5 + msgp.StringPrefixSize + len(z[zb0004].Type) + 8 + msgp.Int32Size + 8 + z[zb0004].Content.Msgsize()
 		}
 	}
 	return
