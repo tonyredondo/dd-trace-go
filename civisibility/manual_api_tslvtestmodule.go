@@ -25,6 +25,8 @@ type tslvTestModule struct {
 	moduleId  uint64
 	name      string
 	framework string
+
+	suites map[string]CiVisibilityTestSuite
 }
 
 func createTestModule(session *tslvTestSession, name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule {
@@ -69,6 +71,7 @@ func createTestModule(session *tslvTestSession, name string, framework string, f
 		moduleId:  moduleId,
 		name:      name,
 		framework: framework,
+		suites:    map[string]CiVisibilityTestSuite{},
 		ciVisibilityCommon: ciVisibilityCommon{
 			startTime: startTime,
 			tags:      moduleTags,
@@ -95,12 +98,28 @@ func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
 		return
 	}
 
+	for _, suite := range t.suites {
+		suite.Close()
+	}
+	t.suites = map[string]CiVisibilityTestSuite{}
+
 	t.span.Finish(tracer.FinishTime(finishTime))
 	t.closed = true
 }
-func (t *tslvTestModule) CreateSuite(name string) CiVisibilityTestSuite {
-	return t.CreateSuiteWithStartTime(name, time.Now())
+func (t *tslvTestModule) GetOrCreateSuite(name string) CiVisibilityTestSuite {
+	return t.GetOrCreateSuiteWithStartTime(name, time.Now())
 }
-func (t *tslvTestModule) CreateSuiteWithStartTime(name string, startTime time.Time) CiVisibilityTestSuite {
-	return createTestSuite(t, name, startTime)
+func (t *tslvTestModule) GetOrCreateSuiteWithStartTime(name string, startTime time.Time) CiVisibilityTestSuite {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	var suite CiVisibilityTestSuite
+	if v, ok := t.suites[name]; ok {
+		suite = v
+	} else {
+		suite = createTestSuite(t, name, startTime)
+		t.suites[name] = suite
+	}
+
+	return suite
 }

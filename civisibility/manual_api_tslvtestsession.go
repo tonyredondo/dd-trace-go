@@ -27,6 +27,8 @@ type tslvTestSession struct {
 	command          string
 	workingDirectory string
 	framework        string
+
+	modules map[string]CiVisibilityTestModule
 }
 
 func CreateTestSession() CiVisibilityTestSession {
@@ -64,11 +66,12 @@ func CreateTestSessionWith(command string, workingDirectory string, framework st
 	sessionId := span.Context().SpanID()
 	span.SetTag(constants.TestSessionIdTagName, fmt.Sprint(sessionId))
 
-	session := &tslvTestSession{
+	s := &tslvTestSession{
 		sessionId:        sessionId,
 		command:          command,
 		workingDirectory: workingDirectory,
 		framework:        framework,
+		modules:          map[string]CiVisibilityTestModule{},
 		ciVisibilityCommon: ciVisibilityCommon{
 			startTime: startTime,
 			tags:      sessionTags,
@@ -79,29 +82,32 @@ func CreateTestSessionWith(command string, workingDirectory string, framework st
 
 	// We need to ensure to close everything before ci visibility is exiting.
 	// In ci visibility mode we try to never lose data
-	pushCiVisibilityCloseAction(func() { session.Close(StatusFail) })
+	pushCiVisibilityCloseAction(func() { s.Close(StatusFail) })
 
-	return session
+	return s
 }
 
-func (t *tslvTestSession) Command() string               { return t.command }
-func (t *tslvTestSession) Framework() string             { return t.framework }
-func (t *tslvTestSession) WorkingDirectory() string      { return t.workingDirectory }
-func (t *tslvTestSession) Close(status TestResultStatus) { t.CloseWithFinishTime(status, time.Now()) }
-func (t *tslvTestSession) CloseWithFinishTime(status TestResultStatus, finishTime time.Time) {
+func (t *tslvTestSession) Command() string          { return t.command }
+func (t *tslvTestSession) Framework() string        { return t.framework }
+func (t *tslvTestSession) WorkingDirectory() string { return t.workingDirectory }
+func (t *tslvTestSession) Close(exitCode int)       { t.CloseWithFinishTime(exitCode, time.Now()) }
+func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	if t.closed {
 		return
 	}
 
-	switch status {
-	case StatusPass:
+	for _, m := range t.modules {
+		m.Close()
+	}
+	t.modules = map[string]CiVisibilityTestModule{}
+
+	t.span.SetTag(constants.TestCommandExitCode, exitCode)
+	if exitCode == 0 {
 		t.span.SetTag(constants.TestStatus, constants.TestStatusPass)
-	case StatusFail:
+	} else {
 		t.span.SetTag(constants.TestStatus, constants.TestStatusFail)
-	case StatusSkip:
-		t.span.SetTag(constants.TestStatus, constants.TestStatusSkip)
 	}
 
 	t.span.Finish(tracer.FinishTime(finishTime))
@@ -109,12 +115,23 @@ func (t *tslvTestSession) CloseWithFinishTime(status TestResultStatus, finishTim
 
 	tracer.Flush()
 }
-func (t *tslvTestSession) CreateModule(name string) CiVisibilityTestModule {
-	return t.CreateModuleWithFramework(name, "", "")
+func (t *tslvTestSession) GetOrCreateModule(name string) CiVisibilityTestModule {
+	return t.GetOrCreateModuleWithFramework(name, "", "")
 }
-func (t *tslvTestSession) CreateModuleWithFramework(name string, framework string, frameworkVersion string) CiVisibilityTestModule {
-	return t.CreateModuleWithFrameworkAndStartTime(name, framework, frameworkVersion, time.Now())
+func (t *tslvTestSession) GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) CiVisibilityTestModule {
+	return t.GetOrCreateModuleWithFrameworkAndStartTime(name, framework, frameworkVersion, time.Now())
 }
-func (t *tslvTestSession) CreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule {
-	return createTestModule(t, name, framework, frameworkVersion, startTime)
+func (t *tslvTestSession) GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	var mod CiVisibilityTestModule
+	if v, ok := t.modules[name]; ok {
+		mod = v
+	} else {
+		mod = createTestModule(t, name, framework, frameworkVersion, startTime)
+		t.modules[name] = mod
+	}
+
+	return mod
 }

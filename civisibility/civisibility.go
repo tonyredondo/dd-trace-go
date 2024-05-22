@@ -108,20 +108,12 @@ func Run(m *testing.M, opts ...tracer.StartOption) int {
 	defer exitCiVisibility()
 
 	session = CreateTestSession()
-	module = session.CreateModule("Package Name")
+	module = session.GetOrCreateModule("Package Name")
 
 	var exitCode = m.Run()
 
-	for _, v := range suites {
-		v.Close()
-	}
-
 	module.Close()
-	if exitCode == 0 {
-		session.Close(StatusPass)
-	} else {
-		session.Close(StatusFail)
-	}
+	session.Close(exitCode)
 
 	// Execute test suite
 	return exitCode
@@ -161,14 +153,7 @@ func StartTestWithContext(ctx context.Context, tb TB, opts ...Option) (context.C
 	}
 	suite, _, _, _ := utils.GetPackageAndName(pc)
 
-	var ciVisibilitySuite CiVisibilityTestSuite
-	if v, ok := suites[suite]; ok {
-		ciVisibilitySuite = v
-	} else {
-		ciVisibilitySuite = module.CreateSuite(suite)
-		suites[suite] = ciVisibilitySuite
-	}
-
+	ciVisibilitySuite := module.GetOrCreateSuite(suite)
 	ciVisibilityTest := ciVisibilitySuite.CreateTest(tb.Name())
 	ciVisibilityTest.SetTestFunc(runtime.FuncForPC(pc))
 

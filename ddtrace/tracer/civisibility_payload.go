@@ -65,11 +65,5 @@ func (p *civisibilitypayload) GetBuffer(config *config) (*bytes.Buffer, error) {
 		return nil, err
 	}
 
-	reader := bytes.NewReader(buf.Bytes())
-	writer := new(bytes.Buffer)
-	msgp.CopyToJSON(writer, reader)
-	json := writer.String()
-	_ = json
-
 	return buf, nil
 }

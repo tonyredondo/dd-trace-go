@@ -38,11 +38,11 @@ type CiVisibilityTestSession interface {
 	Command() string
 	Framework() string
 	WorkingDirectory() string
-	Close(status TestResultStatus)
-	CloseWithFinishTime(status TestResultStatus, finishTime time.Time)
-	CreateModule(name string) CiVisibilityTestModule
-	CreateModuleWithFramework(name string, framework string, frameworkVersion string) CiVisibilityTestModule
-	CreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule
+	Close(exitCode int)
+	CloseWithFinishTime(exitCode int, finishTime time.Time)
+	GetOrCreateModule(name string) CiVisibilityTestModule
+	GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) CiVisibilityTestModule
+	GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule
 }
 
 type CiVisibilityTestModule interface {
@@ -52,8 +52,8 @@ type CiVisibilityTestModule interface {
 	Name() string
 	Close()
 	CloseWithFinishTime(finishTime time.Time)
-	CreateSuite(name string) CiVisibilityTestSuite
-	CreateSuiteWithStartTime(name string, startTime time.Time) CiVisibilityTestSuite
+	GetOrCreateSuite(name string) CiVisibilityTestSuite
+	GetOrCreateSuiteWithStartTime(name string, startTime time.Time) CiVisibilityTestSuite
 }
 
 type CiVisibilityTestSuite interface {

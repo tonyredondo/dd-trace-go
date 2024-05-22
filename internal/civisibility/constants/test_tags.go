@@ -6,20 +6,26 @@
 package constants
 
 const (
-	// TestName is a tag with specifies the test name.
-	TestName = "test.name"
+	// TestModule indicates the test module name
+	TestModule = "test.module"
 
 	// TestSuite indicates the test suite name.
 	TestSuite = "test.suite"
 
-	// TestFramework indicates the test framework name.
-	TestFramework = "test.framework"
-
-	// TestStatus indicates the test execution status.
-	TestStatus = "test.status"
+	// TestName indicates the test name.
+	TestName = "test.name"
 
 	// TestType indicates the type of the test (test, benchmark).
 	TestType = "test.type"
+
+	// TestFramework indicates the test framework name.
+	TestFramework = "test.framework"
+
+	// TestFrameworkVersion indicates the test framework version.
+	TestFrameworkVersion = "test.framework_version"
+
+	// TestStatus indicates the test execution status.
+	TestStatus = "test.status"
 
 	// TestSkipReason indicates the skip reason of the test.
 	TestSkipReason = "test.skip_reason"
@@ -30,8 +36,17 @@ const (
 	// TestSourceStartLine indicates the line of the source file where the test starts.
 	TestSourceStartLine = "test.source.start"
 
-	// TestSourceEndLine indicates the line of the source file where the test ends.
-	TestSourceEndLine = "test.source.end"
+	// TestCodeOwners indicates the test codeowners.
+	TestCodeOwners = "test.codeowners"
+
+	// TestCommand indicates the test command.
+	TestCommand = "test.command"
+
+	// TestCommandExitCode indicates the test command exit code.
+	TestCommandExitCode = "test.exit_code"
+
+	// TestCommandWorkingDirectory indicates the test command working directory relative to the source root.
+	TestCommandWorkingDirectory = "test.working_directory"
 )
 
 // Define valid test status types.

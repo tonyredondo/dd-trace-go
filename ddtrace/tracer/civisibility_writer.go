@@ -6,7 +6,6 @@
 package tracer
 
 import (
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"sync"
 	"time"
 
@@ -49,12 +48,8 @@ func newCiVisibilityTraceWriter(c *config) *ciVisibilityTraceWriter {
 
 func (w *ciVisibilityTraceWriter) add(trace []*span) {
 	for _, s := range trace {
-		if s.Type == constants.SpanTypeTest {
-			s.setMeta(constants.TestSessionIdTagName, "1")
-			s.setMeta(constants.TestModuleIdTagName, "1")
-			s.setMeta(constants.TestSuiteIdTagName, "1")
-		}
-		if err := w.payload.push(getCiVisibilityEvent(s)); err != nil {
+		cvEvent := getCiVisibilityEvent(s)
+		if err := w.payload.push(cvEvent); err != nil {
 			log.Error("Error encoding msgpack: %v", err)
 		}
 		if w.payload.size() > agentlessPayloadSizeLimit {

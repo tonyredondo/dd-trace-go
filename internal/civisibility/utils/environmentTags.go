@@ -6,6 +6,7 @@
 package utils
 
 import (
+	"path/filepath"
 	"runtime"
 	"sync"
 
@@ -28,6 +29,18 @@ func GetCiTags() map[string]string {
 	}
 
 	return ciTags
+}
+
+func GetRelativePathFromCiTagsSourceRoot(path string) string {
+	tags := GetCiTags()
+	if v, ok := tags[constants.CIWorkspacePath]; ok {
+		relPath, err := filepath.Rel(v, path)
+		if err == nil {
+			return relPath
+		}
+	}
+
+	return path
 }
 
 func createCiTagsMap() map[string]string {
