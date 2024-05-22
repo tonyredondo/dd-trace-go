@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package civisibility
+package testing
 
 import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"

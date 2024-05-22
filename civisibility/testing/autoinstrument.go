@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package auto
+package testing
 
 import (
 	"context"
@@ -12,8 +12,6 @@ import (
 	"sync"
 	"testing"
 	"unsafe"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/civisibility"
 )
 
 var (
@@ -32,7 +30,7 @@ type M struct {
 
 func (t T) Run(name string, f func(t *testing.T)) bool {
 	return t.T.Run(name, func(innerT *testing.T) {
-		_, finish := civisibility.StartTestWithContext(GetContext(innerT), innerT, civisibility.WithOriginalTestFunc(f))
+		_, finish := StartTestWithContext(GetContext(innerT), innerT, WithOriginalTestFunc(f))
 		defer finish()
 		f(innerT)
 	})
@@ -42,9 +40,11 @@ func (t T) Context() context.Context {
 	return GetContext(t.T)
 }
 
+/*
 func Run(t *testing.T, name string, f func(t *testing.T)) bool {
 	return T{t}.Run(name, f)
 }
+*/
 
 func (m M) Run() int {
 
@@ -57,7 +57,7 @@ func (m M) Run() int {
 			newTestArray[idx] = testing.InternalTest{
 				Name: test.Name,
 				F: func(t *testing.T) {
-					_, finish := civisibility.StartTestWithContext(GetContext(t), t, civisibility.WithOriginalTestFunc(testFn))
+					_, finish := StartTestWithContext(GetContext(t), t, WithOriginalTestFunc(testFn))
 					defer finish()
 					testFn(t)
 				},
@@ -66,7 +66,7 @@ func (m M) Run() int {
 		*internalTests = newTestArray
 	}
 
-	return civisibility.Run(m.M)
+	return Run(m.M)
 }
 
 func RunM(m *testing.M) int {

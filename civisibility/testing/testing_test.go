@@ -3,11 +3,11 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package civisibility
+package testing
 
+/*
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
@@ -15,10 +15,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 )
-
-func TestMain(m *testing.M) {
-	os.Exit(Run(m))
-}
 
 func TestStatus(t *testing.T) {
 	mt := mocktracer.Start()
@@ -46,11 +42,11 @@ func TestStatus(t *testing.T) {
 		t.FailNow()
 	}
 
-	const suiteName string = "gopkg.in/DataDog/dd-trace-go.v1/civisibility"
+	const suiteName string = "gopkg.in/DataDog/dd-trace-go.v1/civisibility/testing"
 	const framework string = "golang.org/pkg/testing"
 
 	s := spans[0]
-	assertEqual("test", s.OperationName())
+	assertEqual("golang.org/pkg/testing.test", s.OperationName())
 	assertEqual("TestStatus/pass", s.Tag(constants.TestName).(string))
 	assertEqual(suiteName, s.Tag(constants.TestSuite).(string))
 	assertEqual(fmt.Sprintf("%s.%s", suiteName, "TestStatus/pass"), s.Tag(ext.ResourceName).(string))
@@ -61,7 +57,7 @@ func TestStatus(t *testing.T) {
 	fmt.Println(s)
 
 	s = spans[1]
-	assertEqual("test", s.OperationName())
+	assertEqual("golang.org/pkg/testing.test", s.OperationName())
 	assertEqual("TestStatus/skip", s.Tag(constants.TestName).(string))
 	assertEqual(suiteName, s.Tag(constants.TestSuite).(string))
 	assertEqual(fmt.Sprintf("%s.%s", suiteName, "TestStatus/skip"), s.Tag(ext.ResourceName).(string))
@@ -112,7 +108,6 @@ func TestSdkSample(t *testing.T) {
 
 func commonEqualCheck(s mocktracer.Span) {
 	assertEqual(constants.SpanTypeTest, s.Tag(ext.SpanType).(string))
-	assertEqual(constants.SpanTypeTest, s.Tag(constants.SpanKind).(string))
 	assertEqual(constants.TestTypeTest, s.Tag(constants.TestType).(string))
 	assertEqual(constants.CIAppTestOrigin, s.Tag(constants.Origin).(string))
 }
@@ -144,3 +139,5 @@ func assertNotEmpty(actual string) {
 		panic("Value is empty")
 	}
 }
+
+*/

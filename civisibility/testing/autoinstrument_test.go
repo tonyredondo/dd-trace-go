@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package auto
+package testing
 
 import (
 	"testing"
@@ -17,10 +17,11 @@ func TestMyTest01(t *testing.T) {
 	t.Log("My First Test")
 }
 
-func TestMyTest02(t *testing.T) {
-	t.Log("My First Test 2")
+func TestMyTest02(ot *testing.T) {
+	ot.Log("My First Test 2")
+	t := T{ot}
 
-	Run(t, "sub01", func(oT2 *testing.T) {
+	t.Run("sub01", func(oT2 *testing.T) {
 
 		t2 := T{oT2}
 

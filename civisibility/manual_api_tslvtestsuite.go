@@ -8,6 +8,7 @@ package civisibility
 import (
 	"context"
 	"fmt"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ func createTestSuite(module *tslvTestModule, name string, startTime time.Time) C
 
 	// We need to ensure to close everything before ci visibility is exiting.
 	// In ci visibility mode we try to never lose data
-	pushCiVisibilityCloseAction(func() { suite.Close() })
+	internal.PushCiVisibilityCloseAction(func() { suite.Close() })
 
 	return suite
 }

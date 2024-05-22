@@ -3,24 +3,19 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package civisibility
+package testing
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"reflect"
-	"regexp"
 	"runtime"
-	"strings"
-	"sync"
-	"syscall"
 	"testing"
 
+	"gopkg.in/DataDog/dd-trace-go.v1/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
 )
 
@@ -29,86 +24,21 @@ const (
 	testFramework = "golang.org/pkg/testing"
 )
 
-type (
-	// civisibilityCloseAction action to be executed when ci visibility is closing
-	civisibilityCloseAction func()
-)
-
 var (
-	// ciVisibilityInitializationOnce ensure we initialize the ci visibility tracer only once
-	ciVisibilityInitializationOnce sync.Once
-
-	// closeActions ci visibility close actions
-	closeActions []civisibilityCloseAction
-
-	// closeActionsMutex ci visibility close actions mutex
-	closeActionsMutex sync.Mutex
-
-	session CiVisibilityTestSession
-	module  CiVisibilityTestModule
-	suites  = map[string]CiVisibilityTestSuite{}
+	session civisibility.CiVisibilityTestSession
+	module  civisibility.CiVisibilityTestModule
 )
-
-func ensureCiVisibilityInitialization() {
-	ciVisibilityInitializationOnce.Do(func() {
-		// Preload all CI and Git tags.
-		ciTags := utils.GetCiTags()
-
-		// Check if DD_SERVICE has been set; otherwise we default to repo name.
-		var opts []tracer.StartOption
-		if v := os.Getenv("DD_SERVICE"); v == "" {
-			if repoUrl, ok := ciTags[constants.GitRepositoryURL]; ok {
-				// regex to sanitize the repository url to be used as a service name
-				repoRegex := regexp.MustCompile(`(?m)/([a-zA-Z0-9\\\-_.]*)$`)
-				matches := repoRegex.FindStringSubmatch(repoUrl)
-				if len(matches) > 1 {
-					repoUrl = strings.TrimSuffix(matches[1], ".git")
-				}
-				opts = append(opts, tracer.WithService(repoUrl))
-			}
-		}
-
-		// Initialize tracer
-		tracer.Start(opts...)
-
-		// Handle SIGINT and SIGTERM
-		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			<-signals
-			exitCiVisibility()
-			os.Exit(1)
-		}()
-	})
-}
-
-func pushCiVisibilityCloseAction(action civisibilityCloseAction) {
-	closeActionsMutex.Lock()
-	defer closeActionsMutex.Unlock()
-	closeActions = append([]civisibilityCloseAction{action}, closeActions...)
-}
-
-func exitCiVisibility() {
-	closeActionsMutex.Lock()
-	defer closeActionsMutex.Unlock()
-	for _, v := range closeActions {
-		v()
-	}
-
-	tracer.Flush()
-	tracer.Stop()
-}
 
 // FinishFunc closes a started span and attaches test status information.
 type FinishFunc func()
 
 // Run is a helper function to run a `testing.M` object and gracefully stopping the tracer afterwards
 func Run(m *testing.M, opts ...tracer.StartOption) int {
-	ensureCiVisibilityInitialization()
-	defer exitCiVisibility()
+	internal.EnsureCiVisibilityInitialization()
+	defer internal.ExitCiVisibility()
 
-	session = CreateTestSession()
-	module = session.GetOrCreateModule("Package Name")
+	session = civisibility.CreateTestSession()
+	module = session.GetOrCreateModuleWithFramework("Package Name", testFramework, runtime.Version())
 
 	var exitCode = m.Run()
 
@@ -163,19 +93,19 @@ func StartTestWithContext(ctx context.Context, tb TB, opts ...Option) (context.C
 		if r = recover(); r != nil {
 			// Panic handling
 			ciVisibilityTest.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
-			ciVisibilityTest.Close(StatusFail)
-			exitCiVisibility()
+			ciVisibilityTest.Close(civisibility.StatusFail)
+			internal.ExitCiVisibility()
 			panic(r)
 		} else {
 			// Normal finalization
 			ciVisibilityTest.SetTag(ext.Error, tb.Failed())
 
 			if tb.Failed() {
-				ciVisibilityTest.Close(StatusFail)
+				ciVisibilityTest.Close(civisibility.StatusFail)
 			} else if tb.Skipped() {
-				ciVisibilityTest.Close(StatusSkip)
+				ciVisibilityTest.Close(civisibility.StatusSkip)
 			} else {
-				ciVisibilityTest.Close(StatusPass)
+				ciVisibilityTest.Close(civisibility.StatusPass)
 			}
 		}
 	}

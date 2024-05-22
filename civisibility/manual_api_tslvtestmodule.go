@@ -8,6 +8,7 @@ package civisibility
 import (
 	"context"
 	"fmt"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ type tslvTestModule struct {
 
 func createTestModule(session *tslvTestSession, name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule {
 	// Let's ensure we have the ci visibility properly configured
-	ensureCiVisibilityInitialization()
+	internal.EnsureCiVisibilityInitialization()
 
 	operationName := "test_module"
 	if framework != "" {
@@ -82,7 +83,7 @@ func createTestModule(session *tslvTestSession, name string, framework string, f
 
 	// We need to ensure to close everything before ci visibility is exiting.
 	// In ci visibility mode we try to never lose data
-	pushCiVisibilityCloseAction(func() { module.Close() })
+	internal.PushCiVisibilityCloseAction(func() { module.Close() })
 
 	return module
 }

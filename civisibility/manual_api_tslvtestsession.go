@@ -8,6 +8,7 @@ package civisibility
 import (
 	"context"
 	"fmt"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"os"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func CreateTestSession() CiVisibilityTestSession {
 }
 func CreateTestSessionWith(command string, workingDirectory string, framework string, startTime time.Time) CiVisibilityTestSession {
 	// Let's ensure we have the ci visibility properly configured
-	ensureCiVisibilityInitialization()
+	internal.EnsureCiVisibilityInitialization()
 
 	operationName := "test_session"
 	if framework != "" {
@@ -82,7 +83,7 @@ func CreateTestSessionWith(command string, workingDirectory string, framework st
 
 	// We need to ensure to close everything before ci visibility is exiting.
 	// In ci visibility mode we try to never lose data
-	pushCiVisibilityCloseAction(func() { s.Close(StatusFail) })
+	internal.PushCiVisibilityCloseAction(func() { s.Close(StatusFail) })
 
 	return s
 }
