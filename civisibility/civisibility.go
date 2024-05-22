@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 
@@ -28,46 +29,102 @@ const (
 	testFramework = "golang.org/pkg/testing"
 )
 
-var repoRegex = regexp.MustCompile(`(?m)/([a-zA-Z0-9\\\-_.]*)$`)
+type (
+	// civisibilityCloseAction action to be executed when ci visibility is closing
+	civisibilityCloseAction func()
+)
+
+var (
+	// ciVisibilityInitializationOnce ensure we initialize the ci visibility tracer only once
+	ciVisibilityInitializationOnce sync.Once
+
+	// closeActions ci visibility close actions
+	closeActions []civisibilityCloseAction
+
+	// closeActionsMutex ci visibility close actions mutex
+	closeActionsMutex sync.Mutex
+
+	session CiVisibilityTestSession
+	module  CiVisibilityTestModule
+	suites  = map[string]CiVisibilityTestSuite{}
+)
+
+func ensureCiVisibilityInitialization() {
+	ciVisibilityInitializationOnce.Do(func() {
+		// Preload all CI and Git tags.
+		ciTags := utils.GetCiTags()
+
+		// Check if DD_SERVICE has been set; otherwise we default to repo name.
+		var opts []tracer.StartOption
+		if v := os.Getenv("DD_SERVICE"); v == "" {
+			if repoUrl, ok := ciTags[constants.GitRepositoryURL]; ok {
+				// regex to sanitize the repository url to be used as a service name
+				repoRegex := regexp.MustCompile(`(?m)/([a-zA-Z0-9\\\-_.]*)$`)
+				matches := repoRegex.FindStringSubmatch(repoUrl)
+				if len(matches) > 1 {
+					repoUrl = strings.TrimSuffix(matches[1], ".git")
+				}
+				opts = append(opts, tracer.WithService(repoUrl))
+			}
+		}
+
+		// Initialize tracer
+		tracer.Start(opts...)
+
+		// Handle SIGINT and SIGTERM
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			<-signals
+			exitCiVisibility()
+			os.Exit(1)
+		}()
+	})
+}
+
+func pushCiVisibilityCloseAction(action civisibilityCloseAction) {
+	closeActionsMutex.Lock()
+	defer closeActionsMutex.Unlock()
+	closeActions = append([]civisibilityCloseAction{action}, closeActions...)
+}
+
+func exitCiVisibility() {
+	closeActionsMutex.Lock()
+	defer closeActionsMutex.Unlock()
+	for _, v := range closeActions {
+		v()
+	}
+
+	tracer.Flush()
+	tracer.Stop()
+}
 
 // FinishFunc closes a started span and attaches test status information.
 type FinishFunc func()
 
 // Run is a helper function to run a `testing.M` object and gracefully stopping the tracer afterwards
 func Run(m *testing.M, opts ...tracer.StartOption) int {
-	// Preload all CI and Git tags.
-	ciTags := utils.GetCiTags()
+	ensureCiVisibilityInitialization()
+	defer exitCiVisibility()
 
-	// Check if DD_SERVICE has been set; otherwise we default to repo name.
-	if v := os.Getenv("DD_SERVICE"); v == "" {
-		if repoUrl, ok := ciTags[constants.GitRepositoryURL]; ok {
-			matches := repoRegex.FindStringSubmatch(repoUrl)
-			if len(matches) > 1 {
-				repoUrl = strings.TrimSuffix(matches[1], ".git")
-			}
-			opts = append(opts, tracer.WithService(repoUrl))
-		}
+	session = CreateTestSession()
+	module = session.CreateModule("Package Name")
+
+	var exitCode = m.Run()
+
+	for _, v := range suites {
+		v.Close()
 	}
 
-	// Initialize tracer
-	tracer.Start(opts...)
-	exitFunc := func() {
-		tracer.Flush()
-		tracer.Stop()
+	module.Close()
+	if exitCode == 0 {
+		session.Close(StatusPass)
+	} else {
+		session.Close(StatusFail)
 	}
-	defer exitFunc()
-
-	// Handle SIGINT and SIGTERM
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-signals
-		exitFunc()
-		os.Exit(1)
-	}()
 
 	// Execute test suite
-	return m.Run()
+	return exitCode
 }
 
 // TB is the minimal interface common to T and B.
@@ -102,60 +159,39 @@ func StartTestWithContext(ctx context.Context, tb TB, opts ...Option) (context.C
 	} else {
 		pc = reflect.Indirect(reflect.ValueOf(cfg.originalTestFunc)).Pointer()
 	}
+	suite, _, _, _ := utils.GetPackageAndName(pc)
 
-	suite, _, file, line := utils.GetPackageAndName(pc)
-	name := tb.Name()
-	fqn := fmt.Sprintf("%s.%s", suite, name)
-
-	testOpts := []tracer.StartSpanOption{
-		tracer.ResourceName(fqn),
-		tracer.Tag(constants.TestName, name),
-		tracer.Tag(constants.TestSuite, suite),
-		tracer.Tag(constants.TestFramework, testFramework),
-		tracer.Tag(constants.Origin, constants.CIAppTestOrigin),
-		tracer.Tag(constants.TestSourceFile, file),
-		tracer.Tag(constants.TestSourceStartLine, line),
+	var ciVisibilitySuite CiVisibilityTestSuite
+	if v, ok := suites[suite]; ok {
+		ciVisibilitySuite = v
+	} else {
+		ciVisibilitySuite = module.CreateSuite(suite)
+		suites[suite] = ciVisibilitySuite
 	}
 
-	switch tb.(type) {
-	case *testing.T:
-		testOpts = append(testOpts, tracer.Tag(constants.TestType, constants.TestTypeTest))
-	case *testing.B:
-		testOpts = append(testOpts, tracer.Tag(constants.TestType, constants.TestTypeBenchmark))
-	}
-
-	cfg.spanOpts = append(testOpts, cfg.spanOpts...)
-	span, ctx := tracer.StartSpanFromContext(ctx, constants.SpanTypeTest, cfg.spanOpts...)
+	ciVisibilityTest := ciVisibilitySuite.CreateTest(tb.Name())
+	ciVisibilityTest.SetTestFunc(runtime.FuncForPC(pc))
 
 	return ctx, func() {
 		var r interface{} = nil
 
 		if r = recover(); r != nil {
 			// Panic handling
-			span.SetTag(constants.TestStatus, constants.TestStatusFail)
-			span.SetTag(ext.Error, true)
-			span.SetTag(ext.ErrorMsg, fmt.Sprint(r))
-			span.SetTag(ext.ErrorStack, utils.GetStacktrace(2))
-			span.SetTag(ext.ErrorType, "panic")
+			ciVisibilityTest.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+			ciVisibilityTest.Close(StatusFail)
+			exitCiVisibility()
+			panic(r)
 		} else {
 			// Normal finalization
-			span.SetTag(ext.Error, tb.Failed())
+			ciVisibilityTest.SetTag(ext.Error, tb.Failed())
 
 			if tb.Failed() {
-				span.SetTag(constants.TestStatus, constants.TestStatusFail)
+				ciVisibilityTest.Close(StatusFail)
 			} else if tb.Skipped() {
-				span.SetTag(constants.TestStatus, constants.TestStatusSkip)
+				ciVisibilityTest.Close(StatusSkip)
 			} else {
-				span.SetTag(constants.TestStatus, constants.TestStatusPass)
+				ciVisibilityTest.Close(StatusPass)
 			}
-		}
-
-		span.Finish(cfg.finishOpts...)
-
-		if r != nil {
-			tracer.Flush()
-			tracer.Stop()
-			panic(r)
 		}
 	}
 }
