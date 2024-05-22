@@ -107,7 +107,7 @@ func getCiVisibilityEvent(span *span) *ciVisibilityEvent {
 	case constants.SpanTypeTestSession:
 		return createTestSessionEventFromSpan(span)
 	default:
-		return createTestEventFromSpan(span)
+		return createSpanEventFromSpan(span)
 	}
 }
 
