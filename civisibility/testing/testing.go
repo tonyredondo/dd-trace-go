@@ -19,6 +19,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
 )
 
@@ -37,16 +38,22 @@ var (
 	ciVisibilityTestsMutex sync.RWMutex
 )
 
-type testingTInfo struct {
-	originalFunc func(*testing.T)
-	moduleName   string
-	suiteName    string
-	testName     string
-}
+type (
+	testingTInfo struct {
+		originalFunc func(*testing.T)
+		moduleName   string
+		suiteName    string
+		testName     string
+	}
 
-type M struct {
-	*testing.M
-}
+	M struct {
+		*testing.M
+	}
+
+	T struct {
+		*testing.T
+	}
+)
 
 func (m *M) Run() int {
 	internal.EnsureCiVisibilityInitialization()
@@ -96,6 +103,11 @@ func (m *M) Run() int {
 	}
 
 	var exitCode = m.M.Run()
+	coveragePercentage := GetCoverage()
+	if testing.CoverMode() != "" {
+		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
+		session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)
+	}
 
 	session.Close(exitCode)
 	return exitCode
@@ -143,10 +155,6 @@ func RunM(m *testing.M) int {
 
 func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
-}
-
-type T struct {
-	*testing.T
 }
 
 func GetTest(t *testing.T) *T {

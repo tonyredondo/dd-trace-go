@@ -10,6 +10,8 @@ import (
 	"fmt"
 	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -33,7 +35,14 @@ type tslvTestSession struct {
 }
 
 func CreateTestSession() CiVisibilityTestSession {
-	cmd := strings.Join(os.Args, " ")
+	var cmd string
+	if len(os.Args) == 1 {
+		cmd = filepath.Base(os.Args[0])
+	} else {
+		cmd = fmt.Sprintf("%s %s", filepath.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
+	}
+	// let's filter out the random gocoverdir when coverage is enabled (to make the command more "stable")
+	cmd = regexp.MustCompile(`(?si)-test.gocoverdir=(.*)\s`).ReplaceAllString(cmd, "")
 	wd, err := os.Getwd()
 	if err == nil {
 		wd = utils.GetRelativePathFromCiTagsSourceRoot(wd)

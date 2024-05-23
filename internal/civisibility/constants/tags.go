@@ -6,9 +6,6 @@
 package constants
 
 const (
-	// SpanKind defines the Span kind.
-	SpanKind = "span.kind"
-
 	// Origin tag
 	Origin = "_dd.origin"
 
@@ -26,4 +23,13 @@ const (
 
 	// ItrCorrelationIdTagName defines the correlation id for the intelligent test runner tag name for the CI Visibility Protocol
 	ItrCorrelationIdTagName string = "itr_correlation_id"
+)
+
+// Coverage tags
+const (
+	// CodeCoverageEnabledTagName defines if the code coverage has been enabled
+	CodeCoverageEnabledTagName string = "test.code_coverage.enabled"
+
+	// CodeCoveragePercentageOfTotalLines defines the percentage of total code coverage by a session and module
+	CodeCoveragePercentageOfTotalLines string = "test.code_coverage.lines_pct"
 )
