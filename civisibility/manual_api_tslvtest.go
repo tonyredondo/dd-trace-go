@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
@@ -101,6 +102,16 @@ func (t *tslvTest) CloseWithFinishTimeAndSkipReason(status TestResultStatus, fin
 
 	t.span.Finish(tracer.FinishTime(finishTime))
 	t.closed = true
+}
+func (t *tslvTest) SetError(err error) {
+	t.ciVisibilityCommon.SetError(err)
+	t.Suite().SetTag(ext.Error, true)
+	t.Suite().Module().SetTag(ext.Error, true)
+}
+func (t *tslvTest) SetErrorInfo(errType string, message string, callstack string) {
+	t.ciVisibilityCommon.SetErrorInfo(errType, message, callstack)
+	t.Suite().SetTag(ext.Error, true)
+	t.Suite().Module().SetTag(ext.Error, true)
 }
 func (t *tslvTest) SetTestFunc(fn *runtime.Func) {
 	if fn == nil {

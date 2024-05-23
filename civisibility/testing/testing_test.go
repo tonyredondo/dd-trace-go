@@ -112,3 +112,11 @@ func TestWithExternalCalls(oT *testing.T) {
 func TestSkip(t *testing.T) {
 	GetTest(t).Skip("Nothing to do here, skipping!")
 }
+
+func TestFail(t *testing.T) {
+	GetTest(t).Fail()
+}
+
+func TestError(t *testing.T) {
+	GetTest(t).Error("This is my: ", "Error")
+}

@@ -75,32 +75,9 @@ func createTestSuite(module *tslvTestModule, name string, startTime time.Time) C
 	return suite
 }
 
-func (t *tslvTestSuite) Context() context.Context       { return t.ctx }
-func (t *tslvTestSuite) StartTime() time.Time           { return t.startTime }
 func (t *tslvTestSuite) Name() string                   { return t.name }
 func (t *tslvTestSuite) Module() CiVisibilityTestModule { return t.module }
-func (t *tslvTestSuite) SetError(err error)             { t.span.SetTag(ext.Error, err) }
-func (t *tslvTestSuite) SetErrorInfo(errType string, message string, callstack string) {
-	// set the span with error:1
-	t.span.SetTag(ext.Error, true)
-
-	// set the error type
-	if errType != "" {
-		t.span.SetTag(ext.ErrorType, errType)
-	}
-
-	// set the error message
-	if message != "" {
-		t.span.SetTag(ext.ErrorMsg, message)
-	}
-
-	// set the error stacktrace
-	if callstack != "" {
-		t.span.SetTag(ext.ErrorStack, callstack)
-	}
-}
-func (t *tslvTestSuite) SetTag(key string, value interface{}) { t.span.SetTag(key, value) }
-func (t *tslvTestSuite) Close()                               { t.CloseWithFinishTime(time.Now()) }
+func (t *tslvTestSuite) Close()                         { t.CloseWithFinishTime(time.Now()) }
 func (t *tslvTestSuite) CloseWithFinishTime(finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -110,6 +87,14 @@ func (t *tslvTestSuite) CloseWithFinishTime(finishTime time.Time) {
 
 	t.span.Finish(tracer.FinishTime(finishTime))
 	t.closed = true
+}
+func (t *tslvTestSuite) SetError(err error) {
+	t.ciVisibilityCommon.SetError(err)
+	t.Module().SetTag(ext.Error, true)
+}
+func (t *tslvTestSuite) SetErrorInfo(errType string, message string, callstack string) {
+	t.ciVisibilityCommon.SetErrorInfo(errType, message, callstack)
+	t.Module().SetTag(ext.Error, true)
 }
 func (t *tslvTestSuite) CreateTest(name string) CiVisibilityTest {
 	return t.CreateTestWithStartTime(name, time.Now())

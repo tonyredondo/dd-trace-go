@@ -7,7 +7,6 @@ package testing
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -188,8 +187,6 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 			if r := recover(); r != nil {
 				// Panic handling
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
-				suite.SetTag(ext.Error, true)
-				module.SetTag(ext.Error, true)
 				test.Close(civisibility.StatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
@@ -226,7 +223,7 @@ func (ddt *T) Context() context.Context {
 func (ddt *T) Fail() {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
-		ciTest.SetError(errors.New("failed test"))
+		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(2))
 	}
 
 	ddt.T.Fail()
@@ -235,7 +232,7 @@ func (ddt *T) Fail() {
 func (ddt *T) FailNow() {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
-		ciTest.SetError(errors.New("failed test"))
+		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(2))
 	}
 
 	internal.ExitCiVisibility()
@@ -245,7 +242,7 @@ func (ddt *T) FailNow() {
 func (ddt *T) Error(args ...any) {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
-		ciTest.SetError(errors.New(fmt.Sprint(args...)))
+		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(2))
 	}
 
 	ddt.T.Error(args...)
@@ -254,7 +251,7 @@ func (ddt *T) Error(args ...any) {
 func (ddt *T) Errorf(format string, args ...any) {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
-		ciTest.SetError(errors.New(fmt.Sprintf(format, args...)))
+		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
 	}
 
 	ddt.T.Errorf(format, args...)
@@ -263,7 +260,7 @@ func (ddt *T) Errorf(format string, args ...any) {
 func (ddt *T) Fatal(args ...any) {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
-		ciTest.SetError(errors.New(fmt.Sprint(args...)))
+		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(2))
 	}
 
 	ddt.T.Fatal(args...)
@@ -272,7 +269,7 @@ func (ddt *T) Fatal(args ...any) {
 func (ddt *T) Fatalf(format string, args ...any) {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
-		ciTest.SetError(errors.New(fmt.Sprintf(format, args...)))
+		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
 	}
 
 	ddt.T.Fatalf(format, args...)
@@ -282,7 +279,6 @@ func (ddt *T) Skip(args ...any) {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
 		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprint(args...))
-		checkModuleAndSuite(ciTest.Suite().Module(), ciTest.Suite())
 	}
 
 	ddt.T.Skip(args...)
@@ -292,7 +288,6 @@ func (ddt *T) Skipf(format string, args ...any) {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
 		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprintf(format, args...))
-		checkModuleAndSuite(ciTest.Suite().Module(), ciTest.Suite())
 	}
 
 	ddt.T.Skipf(format, args...)
@@ -302,7 +297,6 @@ func (ddt *T) SkipNow() {
 	ciTest := getCiVisibilityTest(ddt.T)
 	if ciTest != nil {
 		ciTest.Close(civisibility.StatusSkip)
-		checkModuleAndSuite(ciTest.Suite().Module(), ciTest.Suite())
 	}
 
 	ddt.T.SkipNow()
