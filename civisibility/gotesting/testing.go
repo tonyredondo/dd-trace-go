@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package testing
+package gotesting
 
 import (
 	"context"
@@ -157,7 +157,7 @@ func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
 }
 
-func GetInstrumentedTest(t *testing.T) *T {
+func GetTest(t *testing.T) *T {
 	return (*T)(t)
 }
 

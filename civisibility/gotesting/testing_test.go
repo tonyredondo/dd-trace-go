@@ -3,13 +3,15 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-package testing
+package gotesting
 
 import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
+	"unsafe"
 
 	ddhttp "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	ddtracer "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -29,7 +31,7 @@ func TestMyTest02(ot *testing.T) {
 
 	t.Run("sub01", func(oT2 *testing.T) {
 
-		t2 := GetInstrumentedTest(oT2)
+		t2 := GetTest(oT2)
 
 		t2.Log("From sub01")
 		t2.Run("sub03", func(t3 *testing.T) {
@@ -39,7 +41,7 @@ func TestMyTest02(ot *testing.T) {
 }
 
 func Test_Foo(t *testing.T) {
-	ddt := GetInstrumentedTest(t)
+	ddt := GetTest(t)
 
 	var tests = []struct {
 		name  string
@@ -58,7 +60,7 @@ func Test_Foo(t *testing.T) {
 }
 
 func TestWithExternalCalls(oT *testing.T) {
-	t := GetInstrumentedTest(oT)
+	t := GetTest(oT)
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Hello World"))
@@ -66,7 +68,7 @@ func TestWithExternalCalls(oT *testing.T) {
 	defer s.Close()
 
 	t.Run("default", func(t *testing.T) {
-		ctx := GetInstrumentedTest(t).Context()
+		ctx := GetTest(t).Context()
 
 		rt := ddhttp.WrapRoundTripper(http.DefaultTransport)
 		client := &http.Client{
@@ -84,7 +86,7 @@ func TestWithExternalCalls(oT *testing.T) {
 	})
 
 	t.Run("custom-name", func(t *testing.T) {
-		ctx := GetInstrumentedTest(t).Context()
+		ctx := GetTest(t).Context()
 		span, _ := ddtracer.SpanFromContext(ctx)
 
 		customNamer := func(req *http.Request) string {
@@ -110,13 +112,32 @@ func TestWithExternalCalls(oT *testing.T) {
 }
 
 func TestSkip(t *testing.T) {
-	GetInstrumentedTest(t).Skip("Nothing to do here, skipping!")
+	GetTest(t).Skip("Nothing to do here, skipping!")
 }
 
 func TestFail(t *testing.T) {
-	GetInstrumentedTest(t).Fail()
+	GetTest(t).Fail()
 }
 
 func TestError(t *testing.T) {
-	GetInstrumentedTest(t).Error("This is my: ", "Error")
+	GetTest(t).Error("This is my: ", "Error")
+}
+
+func BenchmarkFirst(b *testing.B) {
+	fmt.Println("Begin", b.N, b.Elapsed())
+	defer func() {
+		fmt.Println("End")
+	}()
+
+	indirectValue := reflect.Indirect(reflect.ValueOf(b))
+	member := indirectValue.FieldByName("level")
+	if member.IsValid() {
+		fmt.Println(*(*int)(unsafe.Pointer(member.UnsafeAddr())))
+		*(*int)(unsafe.Pointer(member.UnsafeAddr())) = 0
+	}
+
+	r := b.Run(b.Name(), func(b *testing.B) {
+
+	})
+	fmt.Println(r)
 }

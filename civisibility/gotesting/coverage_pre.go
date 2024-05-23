@@ -5,7 +5,7 @@
 
 //go:build !go1.20
 
-package testing
+package gotesting
 
 func getCoverage() float64 {
 	return 0
