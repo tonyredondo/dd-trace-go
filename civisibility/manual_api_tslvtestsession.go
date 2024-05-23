@@ -117,6 +117,7 @@ func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time
 	if exitCode == 0 {
 		t.span.SetTag(constants.TestStatus, constants.TestStatusPass)
 	} else {
+		t.SetErrorInfo("ExitCode", "exit code is not zero.", "")
 		t.span.SetTag(constants.TestStatus, constants.TestStatusFail)
 	}
 

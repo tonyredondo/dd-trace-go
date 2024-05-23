@@ -91,7 +91,9 @@ type ciVisibilityCommon struct {
 
 func (c *ciVisibilityCommon) Context() context.Context { return c.ctx }
 func (c *ciVisibilityCommon) StartTime() time.Time     { return c.startTime }
-func (c *ciVisibilityCommon) SetError(err error)       { c.span.SetTag(ext.Error, err) }
+func (c *ciVisibilityCommon) SetError(err error) {
+	c.span.SetTag(ext.Error, err)
+}
 func (c *ciVisibilityCommon) SetErrorInfo(errType string, message string, callstack string) {
 	// set the span with error:1
 	c.span.SetTag(ext.Error, true)

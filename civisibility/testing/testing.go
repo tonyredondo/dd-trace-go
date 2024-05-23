@@ -7,6 +7,7 @@ package testing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 	"unsafe"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/civisibility"
@@ -125,14 +127,18 @@ func (m *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 			if r := recover(); r != nil {
 				// Panic handling
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+				suite.SetTag(ext.Error, true)
+				module.SetTag(ext.Error, true)
 				test.Close(civisibility.StatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
 				panic(r)
 			} else {
 				// Normal finalization
-				test.SetTag(ext.Error, t.Failed())
 				if t.Failed() {
+					test.SetTag(ext.Error, true)
+					suite.SetTag(ext.Error, true)
+					module.SetTag(ext.Error, true)
 					test.Close(civisibility.StatusFail)
 				} else if t.Skipped() {
 					test.Close(civisibility.StatusSkip)
@@ -182,14 +188,18 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 			if r := recover(); r != nil {
 				// Panic handling
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+				suite.SetTag(ext.Error, true)
+				module.SetTag(ext.Error, true)
 				test.Close(civisibility.StatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
 				panic(r)
 			} else {
 				// Normal finalization
-				test.SetTag(ext.Error, t.Failed())
 				if t.Failed() {
+					test.SetTag(ext.Error, true)
+					suite.SetTag(ext.Error, true)
+					module.SetTag(ext.Error, true)
 					test.Close(civisibility.StatusFail)
 				} else if t.Skipped() {
 					test.Close(civisibility.StatusSkip)
@@ -211,6 +221,91 @@ func (ddt *T) Context() context.Context {
 	}
 
 	return context.Background()
+}
+
+func (ddt *T) Fail() {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.SetError(errors.New("failed test"))
+	}
+
+	ddt.T.Fail()
+}
+
+func (ddt *T) FailNow() {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.SetError(errors.New("failed test"))
+	}
+
+	internal.ExitCiVisibility()
+	ddt.T.FailNow()
+}
+
+func (ddt *T) Error(args ...any) {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.SetError(errors.New(fmt.Sprint(args...)))
+	}
+
+	ddt.T.Error(args...)
+}
+
+func (ddt *T) Errorf(format string, args ...any) {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.SetError(errors.New(fmt.Sprintf(format, args...)))
+	}
+
+	ddt.T.Errorf(format, args...)
+}
+
+func (ddt *T) Fatal(args ...any) {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.SetError(errors.New(fmt.Sprint(args...)))
+	}
+
+	ddt.T.Fatal(args...)
+}
+
+func (ddt *T) Fatalf(format string, args ...any) {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.SetError(errors.New(fmt.Sprintf(format, args...)))
+	}
+
+	ddt.T.Fatalf(format, args...)
+}
+
+func (ddt *T) Skip(args ...any) {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprint(args...))
+		checkModuleAndSuite(ciTest.Suite().Module(), ciTest.Suite())
+	}
+
+	ddt.T.Skip(args...)
+}
+
+func (ddt *T) Skipf(format string, args ...any) {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprintf(format, args...))
+		checkModuleAndSuite(ciTest.Suite().Module(), ciTest.Suite())
+	}
+
+	ddt.T.Skipf(format, args...)
+}
+
+func (ddt *T) SkipNow() {
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		ciTest.Close(civisibility.StatusSkip)
+		checkModuleAndSuite(ciTest.Suite().Module(), ciTest.Suite())
+	}
+
+	ddt.T.SkipNow()
 }
 
 func checkModuleAndSuite(module civisibility.CiVisibilityTestModule, suite civisibility.CiVisibilityTestSuite) {

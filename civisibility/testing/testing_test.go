@@ -108,3 +108,7 @@ func TestWithExternalCalls(oT *testing.T) {
 		client.Do(req)
 	})
 }
+
+func TestSkip(t *testing.T) {
+	GetTest(t).Skip("Nothing to do here, skipping!")
+}
