@@ -28,7 +28,7 @@ type localGitData struct {
 	CommitMessage  string
 }
 
-var regexpSensitiveInfo = regexp.MustCompile("(https?://)[^/]*@")
+var regexpSensitiveInfo = regexp.MustCompile("(https?://|ssh?://)[^/]*@")
 
 // getLocalGitData get the git data from the HEAD in Git repository
 func getLocalGitData() (localGitData, error) {

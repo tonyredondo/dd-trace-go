@@ -98,7 +98,7 @@ func TestTags(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					reset := setEnvs(env)
 					defer reset()
-					providerTags := GetProviderTags()
+					providerTags := getProviderTags()
 
 					for expectedKey, expectedValue := range tags {
 						if actualValue, ok := providerTags[expectedKey]; ok {

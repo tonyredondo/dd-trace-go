@@ -94,6 +94,15 @@ func normalizeTags(tags map[string]string) {
 	if tag, ok := tags[constants.GitRepositoryURL]; ok && tag != "" {
 		tags[constants.GitRepositoryURL] = filterSensitiveInfo(tag)
 	}
+	if tag, ok := tags[constants.CIPipelineURL]; ok && tag != "" {
+		tags[constants.CIPipelineURL] = filterSensitiveInfo(tag)
+	}
+	if tag, ok := tags[constants.CIJobURL]; ok && tag != "" {
+		tags[constants.CIJobURL] = filterSensitiveInfo(tag)
+	}
+	if tag, ok := tags[constants.CIEnvVars]; ok && tag != "" {
+		tags[constants.CIEnvVars] = filterSensitiveInfo(tag)
+	}
 }
 
 func replaceWithUserSpecificTags(tags map[string]string) {
