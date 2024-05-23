@@ -6,23 +6,28 @@
 package utils
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
+	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/osinfo"
 )
 
 var (
 	// tags contains information detected from CI/CD environment variables.
-	ciTags     map[string]string
-	ciTagsLock sync.Mutex
+	ciTags      map[string]string
+	ciTagsMutex sync.Mutex
+
+	codeowners      *CodeOwners
+	codeownersMutex sync.Mutex
 )
 
 func GetCiTags() map[string]string {
-	ciTagsLock.Lock()
-	defer ciTagsLock.Unlock()
+	ciTagsMutex.Lock()
+	defer ciTagsMutex.Unlock()
 
 	if ciTags == nil {
 		ciTags = createCiTagsMap()
@@ -41,6 +46,35 @@ func GetRelativePathFromCiTagsSourceRoot(path string) string {
 	}
 
 	return path
+}
+
+func GetCodeOwners() *CodeOwners {
+	codeownersMutex.Lock()
+	defer codeownersMutex.Unlock()
+
+	if codeowners != nil {
+		return codeowners
+	}
+
+	tags := GetCiTags()
+	if v, ok := tags[constants.CIWorkspacePath]; ok {
+		paths := []string{
+			filepath.Join(v, "CODEOWNERS"),
+			filepath.Join(v, ".github", "CODEOWNERS"),
+			filepath.Join(v, ".gitlab", "CODEOWNERS"),
+			filepath.Join(v, ".docs", "CODEOWNERS"),
+		}
+		for _, path := range paths {
+			if _, err := os.Stat(path); err == nil {
+				codeowners, err = NewCodeOwners(path)
+				if err != nil {
+					logger.Debug("Error parsing codeowners: %s", err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func createCiTagsMap() map[string]string {

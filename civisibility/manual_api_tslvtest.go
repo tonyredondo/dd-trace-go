@@ -8,13 +8,14 @@ package civisibility
 import (
 	"context"
 	"fmt"
-	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"runtime"
 	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
 )
 
 // Test
@@ -107,6 +108,15 @@ func (t *tslvTest) SetTestFunc(fn *runtime.Func) {
 	}
 
 	file, line := fn.FileLine(fn.Entry())
+	file = utils.GetRelativePathFromCiTagsSourceRoot(file)
 	t.SetTag(constants.TestSourceFile, file)
 	t.SetTag(constants.TestSourceStartLine, line)
+
+	codeOwners := utils.GetCodeOwners()
+	if codeOwners != nil {
+		match := codeOwners.Match("/" + file)
+		if match != nil {
+			t.SetTag(constants.TestCodeOwners, match.GetOwnersString())
+		}
+	}
 }
