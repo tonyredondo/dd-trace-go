@@ -5,139 +5,47 @@
 
 package testing
 
-/*
 import (
-	"fmt"
 	"testing"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 )
 
-func TestStatus(t *testing.T) {
-	mt := mocktracer.Start()
-	defer mt.Stop()
-
-	t.Run("pass", func(t *testing.T) {
-		ctx, finish := StartTest(t)
-		defer finish()
-
-		span, _ := tracer.SpanFromContext(ctx)
-		span.SetTag("k", "1")
-	})
-
-	t.Run("skip", func(t *testing.T) {
-		ctx, finish := StartTest(t)
-		defer finish()
-
-		span, _ := tracer.SpanFromContext(ctx)
-		span.SetTag("k", "2")
-		t.Skip("good reason")
-	})
-
-	spans := mt.FinishedSpans()
-	if len(spans) != 2 {
-		t.FailNow()
-	}
-
-	const suiteName string = "gopkg.in/DataDog/dd-trace-go.v1/civisibility/testing"
-	const framework string = "golang.org/pkg/testing"
-
-	s := spans[0]
-	assertEqual("golang.org/pkg/testing.test", s.OperationName())
-	assertEqual("TestStatus/pass", s.Tag(constants.TestName).(string))
-	assertEqual(suiteName, s.Tag(constants.TestSuite).(string))
-	assertEqual(fmt.Sprintf("%s.%s", suiteName, "TestStatus/pass"), s.Tag(ext.ResourceName).(string))
-	assertEqual(framework, s.Tag(constants.TestFramework).(string))
-	assertEqual(constants.TestStatusPass, s.Tag(constants.TestStatus).(string))
-	commonEqualCheck(s)
-	commonNotEmptyCheck(s)
-	fmt.Println(s)
-
-	s = spans[1]
-	assertEqual("golang.org/pkg/testing.test", s.OperationName())
-	assertEqual("TestStatus/skip", s.Tag(constants.TestName).(string))
-	assertEqual(suiteName, s.Tag(constants.TestSuite).(string))
-	assertEqual(fmt.Sprintf("%s.%s", suiteName, "TestStatus/skip"), s.Tag(ext.ResourceName).(string))
-	assertEqual(framework, s.Tag(constants.TestFramework).(string))
-	assertEqual(constants.TestStatusSkip, s.Tag(constants.TestStatus).(string))
-	commonEqualCheck(s)
-	commonNotEmptyCheck(s)
-	fmt.Println(s)
+func TestMain(m *testing.M) {
+	RunAndExit(m)
 }
 
-func TestPanic(t *testing.T) {
-	mt := mocktracer.Start()
-	defer mt.Stop()
-
-	t.Run("panic", func(t *testing.T) {
-		defer func() {
-			// recover panic to finish the subtest successfully
-			recover()
-		}()
-
-		_, finish := StartTest(t)
-		defer finish()
-
-		panic("forced panic")
-	})
-
-	spans := mt.FinishedSpans()
-	if len(spans) != 1 {
-		t.FailNow()
-	}
-
-	s := spans[0]
-	assertEqual("forced panic", s.Tag(ext.ErrorMsg).(string))
-	assertEqual("panic", s.Tag(ext.ErrorType).(string))
-	assertEqual("true", fmt.Sprint(s.Tag(ext.Error)))
-	assertNotEmpty(s.Tag(ext.ErrorStack).(string))
+func TestMyTest01(t *testing.T) {
+	t.Log("My First Test")
 }
 
-func TestSdkSample(t *testing.T) {
-	ctx, finish := StartTest(t)
-	defer finish()
+func TestMyTest02(ot *testing.T) {
+	ot.Log("My First Test 2")
+	t := T{T: ot}
 
-	t.Run("sub-test", func(t *testing.T) {
-		_, finish := StartTestWithContext(ctx, t)
-		defer finish()
+	t.Run("sub01", func(oT2 *testing.T) {
+
+		t2 := T{T: oT2}
+
+		t2.Log("From sub01")
+		t2.Run("sub03", func(t3 *testing.T) {
+			t3.Log("From sub03")
+		})
 	})
 }
 
-func commonEqualCheck(s mocktracer.Span) {
-	assertEqual(constants.SpanTypeTest, s.Tag(ext.SpanType).(string))
-	assertEqual(constants.TestTypeTest, s.Tag(constants.TestType).(string))
-	assertEqual(constants.CIAppTestOrigin, s.Tag(constants.Origin).(string))
-}
-
-func commonNotEmptyCheck(s mocktracer.Span) {
-	assertNotEmpty(s.Tag(constants.GitCommitAuthorDate).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitAuthorEmail).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitAuthorName).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitCommitterDate).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitCommitterEmail).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitCommitterName).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitMessage).(string))
-	assertNotEmpty(s.Tag(constants.GitCommitSHA).(string))
-	assertNotEmpty(s.Tag(constants.GitRepositoryURL).(string))
-	assertNotEmpty(s.Tag(constants.CIWorkspacePath).(string))
-	assertNotEmpty(s.Tag(constants.OSArchitecture).(string))
-	assertNotEmpty(s.Tag(constants.OSPlatform).(string))
-	assertNotEmpty(s.Tag(constants.OSVersion).(string))
-}
-
-func assertEqual(expected string, actual string) {
-	if expected != actual {
-		panic(fmt.Sprintf("Value expected: %s, Actual: %s", expected, actual))
+func Test_Foo(t *testing.T) {
+	var tests = []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"yellow should return color", "yellow", "color"},
+		{"banana should return fruit", "banana", "fruit"},
+		{"duck should return animal", "duck", "animal"},
+	}
+	for _, test := range tests {
+		ddt := T{T: t}
+		ddt.Run(test.name, func(t *testing.T) {
+			t.Log(test.name)
+		})
 	}
 }
-
-func assertNotEmpty(actual string) {
-	if actual == "" {
-		panic("Value is empty")
-	}
-}
-
-*/

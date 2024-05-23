@@ -8,39 +8,38 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
 
-// GetPackageAndName gets the suite name and test name given a program counter.
+// GetModuleAndSuiteName gets the module name and suite name given a program counter.
 // Uses runtime.FuncForPC internally to get the full func name of the program counter,
-// then it will split the string by the searching for the latest dot ('.') in the string
-// that separate the full package name from the actual func name.
+// and the file then it will split the string by the searching for the latest dot ('.')
+// in the string that separate the full package name from the actual func name.
 // Example 1:
 //
 //	input: github.com/DataDog/dd-sdk-go-testing.TestRun
 //	output:
-//	   suite: github.com/DataDog/dd-sdk-go-testing
-//	   name: TestRun
+//	   module: github.com/DataDog/dd-sdk-go-testing
+//	   suite: testing_test.go
 //
 // Example 2:
 //
 //	input: github.com/DataDog/dd-sdk-go-testing.TestRun.func1
 //	output:
-//	   suite: github.com/DataDog/dd-sdk-go-testing
-//	   name: TestRun.func1
-func GetPackageAndName(pc uintptr) (suite string, name string, file string, line int) {
+//	   module: github.com/DataDog/dd-sdk-go-testing
+//	   suite: testing_test.go
+func GetModuleAndSuiteName(pc uintptr) (module string, suite string) {
 	funcValue := runtime.FuncForPC(pc)
-	file, line = funcValue.FileLine(funcValue.Entry())
 	funcFullName := funcValue.Name()
 	lastSlash := strings.LastIndexByte(funcFullName, '/')
 	if lastSlash < 0 {
 		lastSlash = 0
 	}
 	firstDot := strings.IndexByte(funcFullName[lastSlash:], '.') + lastSlash
-	packName := funcFullName[:firstDot]
-	funcName := funcFullName[firstDot+1:]
-	return packName, funcName, file, line
+	file, _ := funcValue.FileLine(funcValue.Entry())
+	return funcFullName[:firstDot], filepath.Base(file)
 }
 
 func GetStacktrace(skip int) string {
