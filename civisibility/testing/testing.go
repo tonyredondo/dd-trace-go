@@ -47,23 +47,19 @@ type (
 		testName     string
 	}
 
-	M struct {
-		*testing.M
-	}
-
-	T struct {
-		*testing.T
-	}
+	M testing.M
+	T testing.T
 )
 
-func (m *M) Run() int {
+func (ddm *M) Run() int {
 	internal.EnsureCiVisibilityInitialization()
 	defer internal.ExitCiVisibility()
 
 	session = civisibility.CreateTestSession()
 
 	// Let's access to the inner Test array and instrument them
-	internalTests := getInternalTestArray(m.M)
+	m := (*testing.M)(ddm)
+	internalTests := getInternalTestArray(m)
 	if internalTests != nil {
 
 		// Extract info from internal tests
@@ -97,13 +93,13 @@ func (m *M) Run() int {
 		for idx, testInfo := range testInfos {
 			newTestArray[idx] = testing.InternalTest{
 				Name: testInfo.testName,
-				F:    m.executeInternalTest(testInfo),
+				F:    ddm.executeInternalTest(testInfo),
 			}
 		}
 		*internalTests = newTestArray
 	}
 
-	var exitCode = m.M.Run()
+	var exitCode = m.Run()
 	coveragePercentage := getCoverage()
 	if testing.CoverMode() != "" {
 		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
@@ -114,7 +110,7 @@ func (m *M) Run() int {
 	return exitCode
 }
 
-func (m *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
+func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 	originalFunc := runtime.FuncForPC(reflect.Indirect(reflect.ValueOf(testInfo.originalFunc)).Pointer())
 	return func(t *testing.T) {
 		module := session.GetOrCreateModuleWithFramework(testInfo.moduleName, testFramework, runtime.Version())
@@ -154,8 +150,7 @@ func (m *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 }
 
 func RunM(m *testing.M) int {
-	ddM := M{M: m}
-	return ddM.Run()
+	return (*M)(m).Run()
 }
 
 func RunAndExit(m *testing.M) {
@@ -163,7 +158,7 @@ func RunAndExit(m *testing.M) {
 }
 
 func GetInstrumentedTest(t *testing.T) *T {
-	return &T{t}
+	return (*T)(t)
 }
 
 func (ddt *T) Run(name string, f func(*testing.T)) bool {
@@ -175,7 +170,8 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 	// let's increment the test count in the suite
 	atomic.AddInt32(suitesCounters[suiteName], 1)
 
-	return ddt.T.Run(name, func(t *testing.T) {
+	t := (*testing.T)(ddt)
+	return t.Run(name, func(t *testing.T) {
 		module := session.GetOrCreateModuleWithFramework(moduleName, testFramework, runtime.Version())
 		suite := module.GetOrCreateSuite(suiteName)
 		test := suite.CreateTest(t.Name())
@@ -210,7 +206,8 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 }
 
 func (ddt *T) Context() context.Context {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		return ciTest.Context()
 	}
@@ -219,85 +216,94 @@ func (ddt *T) Context() context.Context {
 }
 
 func (ddt *T) Fail() {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(2))
 	}
 
-	ddt.T.Fail()
+	t.Fail()
 }
 
 func (ddt *T) FailNow() {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(2))
 	}
 
 	internal.ExitCiVisibility()
-	ddt.T.FailNow()
+	t.FailNow()
 }
 
 func (ddt *T) Error(args ...any) {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(2))
 	}
 
-	ddt.T.Error(args...)
+	t.Error(args...)
 }
 
 func (ddt *T) Errorf(format string, args ...any) {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
 	}
 
-	ddt.T.Errorf(format, args...)
+	t.Errorf(format, args...)
 }
 
 func (ddt *T) Fatal(args ...any) {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(2))
 	}
 
-	ddt.T.Fatal(args...)
+	t.Fatal(args...)
 }
 
 func (ddt *T) Fatalf(format string, args ...any) {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
 	}
 
-	ddt.T.Fatalf(format, args...)
+	t.Fatalf(format, args...)
 }
 
 func (ddt *T) Skip(args ...any) {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprint(args...))
 	}
 
-	ddt.T.Skip(args...)
+	t.Skip(args...)
 }
 
 func (ddt *T) Skipf(format string, args ...any) {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprintf(format, args...))
 	}
 
-	ddt.T.Skipf(format, args...)
+	t.Skipf(format, args...)
 }
 
 func (ddt *T) SkipNow() {
-	ciTest := getCiVisibilityTest(ddt.T)
+	t := (*testing.T)(ddt)
+	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
 		ciTest.Close(civisibility.StatusSkip)
 	}
 
-	ddt.T.SkipNow()
+	t.SkipNow()
 }
 
 func checkModuleAndSuite(module civisibility.CiVisibilityTestModule, suite civisibility.CiVisibilityTestSuite) {

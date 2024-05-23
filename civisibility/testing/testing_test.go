@@ -25,7 +25,7 @@ func TestMyTest01(t *testing.T) {
 
 func TestMyTest02(ot *testing.T) {
 	ot.Log("My First Test 2")
-	t := &T{ot}
+	t := (*T)(ot)
 
 	t.Run("sub01", func(oT2 *testing.T) {
 
