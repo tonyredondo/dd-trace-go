@@ -361,6 +361,10 @@ func newConfig(opts ...StartOption) *config {
 		c.logToStdout = true
 	}
 	c.logStartup = internal.BoolEnv("DD_TRACE_STARTUP_LOGS", true)
+	if c.ciVisibilityEnabled {
+		c.logStartup = false // if we are in CI Visibility mode we don't log the startup to stdout to avoid polluting the output
+	}
+
 	c.runtimeMetrics = internal.BoolEnv("DD_RUNTIME_METRICS_ENABLED", false)
 	c.debug = internal.BoolEnv("DD_TRACE_DEBUG", false)
 	c.enabled = newDynamicConfig("tracing_enabled", internal.BoolEnv("DD_TRACE_ENABLED", true), func(b bool) bool { return true }, equal[bool])
