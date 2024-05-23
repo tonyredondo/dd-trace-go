@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"unsafe"
@@ -31,10 +32,12 @@ var (
 	testInfos       []*testingTInfo
 	modulesCounters = map[string]*int32{}
 	suitesCounters  = map[string]*int32{}
+
+	ciVisibilityTests      = map[*testing.T]civisibility.CiVisibilityTest{}
+	ciVisibilityTestsMutex sync.RWMutex
 )
 
 type testingTInfo struct {
-	session      civisibility.CiVisibilityTestSession
 	originalFunc func(*testing.T)
 	moduleName   string
 	suiteName    string
@@ -60,7 +63,6 @@ func (m *M) Run() int {
 		for idx, test := range *internalTests {
 			moduleName, suiteName := utils.GetModuleAndSuiteName(reflect.Indirect(reflect.ValueOf(test.F)).Pointer())
 			testInfo := &testingTInfo{
-				session:      session,
 				originalFunc: test.F,
 				moduleName:   moduleName,
 				suiteName:    suiteName,
@@ -87,7 +89,7 @@ func (m *M) Run() int {
 		for idx, testInfo := range testInfos {
 			newTestArray[idx] = testing.InternalTest{
 				Name: testInfo.testName,
-				F:    executeInternalTest(testInfo),
+				F:    m.executeInternalTest(testInfo),
 			}
 		}
 		*internalTests = newTestArray
@@ -99,13 +101,14 @@ func (m *M) Run() int {
 	return exitCode
 }
 
-func executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
+func (m *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 	originalFunc := runtime.FuncForPC(reflect.Indirect(reflect.ValueOf(testInfo.originalFunc)).Pointer())
 	return func(t *testing.T) {
 		module := session.GetOrCreateModuleWithFramework(testInfo.moduleName, testFramework, runtime.Version())
 		suite := module.GetOrCreateSuite(testInfo.suiteName)
 		test := suite.CreateTest(testInfo.testName)
 		test.SetTestFunc(originalFunc)
+		setCiVisibilityTest(t, test)
 		defer func() {
 			if r := recover(); r != nil {
 				// Panic handling
@@ -144,7 +147,12 @@ func RunAndExit(m *testing.M) {
 
 type T struct {
 	*testing.T
-	test civisibility.CiVisibilityTest
+}
+
+func GetTest(t *testing.T) *T {
+	return &T{
+		T: t,
+	}
 }
 
 func (ddt *T) Run(name string, f func(*testing.T)) bool {
@@ -159,25 +167,26 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 	return ddt.T.Run(name, func(t *testing.T) {
 		module := session.GetOrCreateModuleWithFramework(moduleName, testFramework, runtime.Version())
 		suite := module.GetOrCreateSuite(suiteName)
-		ddt.test = suite.CreateTest(t.Name())
-		ddt.test.SetTestFunc(originalFunc)
+		test := suite.CreateTest(t.Name())
+		test.SetTestFunc(originalFunc)
+		setCiVisibilityTest(t, test)
 		defer func() {
 			if r := recover(); r != nil {
 				// Panic handling
-				ddt.test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
-				ddt.test.Close(civisibility.StatusFail)
+				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+				test.Close(civisibility.StatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
 				panic(r)
 			} else {
 				// Normal finalization
-				ddt.test.SetTag(ext.Error, t.Failed())
+				test.SetTag(ext.Error, t.Failed())
 				if t.Failed() {
-					ddt.test.Close(civisibility.StatusFail)
+					test.Close(civisibility.StatusFail)
 				} else if t.Skipped() {
-					ddt.test.Close(civisibility.StatusSkip)
+					test.Close(civisibility.StatusSkip)
 				} else {
-					ddt.test.Close(civisibility.StatusPass)
+					test.Close(civisibility.StatusPass)
 				}
 				checkModuleAndSuite(module, suite)
 			}
@@ -188,8 +197,9 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 }
 
 func (ddt *T) Context() context.Context {
-	if ddt.test != nil {
-		return ddt.test.Context()
+	ciTest := getCiVisibilityTest(ddt.T)
+	if ciTest != nil {
+		return ciTest.Context()
 	}
 
 	return context.Background()
@@ -215,4 +225,21 @@ func getInternalTestArray(m *testing.M) *[]testing.InternalTest {
 		return (*[]testing.InternalTest)(unsafe.Pointer(member.UnsafeAddr()))
 	}
 	return nil
+}
+
+func getCiVisibilityTest(t *testing.T) civisibility.CiVisibilityTest {
+	ciVisibilityTestsMutex.RLock()
+	defer ciVisibilityTestsMutex.RUnlock()
+
+	if v, ok := ciVisibilityTests[t]; ok {
+		return v
+	}
+
+	return nil
+}
+
+func setCiVisibilityTest(t *testing.T, ciTest civisibility.CiVisibilityTest) {
+	ciVisibilityTestsMutex.Lock()
+	defer ciVisibilityTestsMutex.Unlock()
+	ciVisibilityTests[t] = ciTest
 }

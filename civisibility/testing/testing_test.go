@@ -6,7 +6,13 @@
 package testing
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	ddhttp "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
+	ddtracer "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 func TestMain(m *testing.M) {
@@ -19,11 +25,11 @@ func TestMyTest01(t *testing.T) {
 
 func TestMyTest02(ot *testing.T) {
 	ot.Log("My First Test 2")
-	t := T{T: ot}
+	t := GetTest(ot)
 
 	t.Run("sub01", func(oT2 *testing.T) {
 
-		t2 := T{T: oT2}
+		t2 := GetTest(oT2)
 
 		t2.Log("From sub01")
 		t2.Run("sub03", func(t3 *testing.T) {
@@ -33,6 +39,8 @@ func TestMyTest02(ot *testing.T) {
 }
 
 func Test_Foo(t *testing.T) {
+	ddt := GetTest(t)
+
 	var tests = []struct {
 		name  string
 		input string
@@ -43,9 +51,60 @@ func Test_Foo(t *testing.T) {
 		{"duck should return animal", "duck", "animal"},
 	}
 	for _, test := range tests {
-		ddt := T{T: t}
 		ddt.Run(test.name, func(t *testing.T) {
 			t.Log(test.name)
 		})
 	}
+}
+
+func TestWithExternalCalls(oT *testing.T) {
+	t := GetTest(oT)
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello World"))
+	}))
+	defer s.Close()
+
+	t.Run("default", func(t *testing.T) {
+		ctx := GetTest(t).Context()
+
+		rt := ddhttp.WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+
+		req, err := http.NewRequest("GET", s.URL+"/hello/world", nil)
+		if err != nil {
+			t.FailNow()
+		}
+
+		req = req.WithContext(ctx)
+
+		client.Do(req)
+	})
+
+	t.Run("custom-name", func(t *testing.T) {
+		ctx := GetTest(t).Context()
+		span, _ := ddtracer.SpanFromContext(ctx)
+
+		customNamer := func(req *http.Request) string {
+			value := fmt.Sprintf("%s %s", req.Method, req.URL.Path)
+			span.SetTag("customNamer.Value", value)
+			return value
+		}
+
+		rt := ddhttp.WrapRoundTripper(http.DefaultTransport, ddhttp.RTWithResourceNamer(customNamer))
+		client := &http.Client{
+			Transport: rt,
+		}
+
+		req, err := http.NewRequest("GET", s.URL+"/hello/world", nil)
+		if err != nil {
+			t.FailNow()
+		}
+
+		req = req.WithContext(ctx)
+
+		client.Do(req)
+	})
 }
