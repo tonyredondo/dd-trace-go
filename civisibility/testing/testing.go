@@ -162,10 +162,8 @@ func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
 }
 
-func GetTest(t *testing.T) *T {
-	return &T{
-		T: t,
-	}
+func GetInstrumentedTest(t *testing.T) *T {
+	return &T{t}
 }
 
 func (ddt *T) Run(name string, f func(*testing.T)) bool {

@@ -25,11 +25,11 @@ func TestMyTest01(t *testing.T) {
 
 func TestMyTest02(ot *testing.T) {
 	ot.Log("My First Test 2")
-	t := GetTest(ot)
+	t := &T{ot}
 
 	t.Run("sub01", func(oT2 *testing.T) {
 
-		t2 := GetTest(oT2)
+		t2 := GetInstrumentedTest(oT2)
 
 		t2.Log("From sub01")
 		t2.Run("sub03", func(t3 *testing.T) {
@@ -39,7 +39,7 @@ func TestMyTest02(ot *testing.T) {
 }
 
 func Test_Foo(t *testing.T) {
-	ddt := GetTest(t)
+	ddt := GetInstrumentedTest(t)
 
 	var tests = []struct {
 		name  string
@@ -58,7 +58,7 @@ func Test_Foo(t *testing.T) {
 }
 
 func TestWithExternalCalls(oT *testing.T) {
-	t := GetTest(oT)
+	t := GetInstrumentedTest(oT)
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Hello World"))
@@ -66,7 +66,7 @@ func TestWithExternalCalls(oT *testing.T) {
 	defer s.Close()
 
 	t.Run("default", func(t *testing.T) {
-		ctx := GetTest(t).Context()
+		ctx := GetInstrumentedTest(t).Context()
 
 		rt := ddhttp.WrapRoundTripper(http.DefaultTransport)
 		client := &http.Client{
@@ -84,7 +84,7 @@ func TestWithExternalCalls(oT *testing.T) {
 	})
 
 	t.Run("custom-name", func(t *testing.T) {
-		ctx := GetTest(t).Context()
+		ctx := GetInstrumentedTest(t).Context()
 		span, _ := ddtracer.SpanFromContext(ctx)
 
 		customNamer := func(req *http.Request) string {
@@ -110,13 +110,13 @@ func TestWithExternalCalls(oT *testing.T) {
 }
 
 func TestSkip(t *testing.T) {
-	GetTest(t).Skip("Nothing to do here, skipping!")
+	GetInstrumentedTest(t).Skip("Nothing to do here, skipping!")
 }
 
 func TestFail(t *testing.T) {
-	GetTest(t).Fail()
+	GetInstrumentedTest(t).Fail()
 }
 
 func TestError(t *testing.T) {
-	GetTest(t).Error("This is my: ", "Error")
+	GetInstrumentedTest(t).Error("This is my: ", "Error")
 }
