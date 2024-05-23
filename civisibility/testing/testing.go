@@ -103,7 +103,7 @@ func (m *M) Run() int {
 	}
 
 	var exitCode = m.M.Run()
-	coveragePercentage := GetCoverage()
+	coveragePercentage := getCoverage()
 	if testing.CoverMode() != "" {
 		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
 		session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)

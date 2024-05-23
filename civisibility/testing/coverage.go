@@ -24,7 +24,7 @@ func runtime_coverage_processCoverTestDirInternal(dir string, cfile string, cm s
 // force the package to be included in the binary so the linker (in go:linkname) can find the symbols
 var _ = coverage.ClearCounters
 
-func GetCoverage() float64 {
+func getCoverage() float64 {
 
 	buffer := new(bytes.Buffer)
 	err := runtime_coverage_processCoverTestDirInternal(os.Getenv("GOCOVERDIR"), "", testing.CoverMode(), "", buffer)

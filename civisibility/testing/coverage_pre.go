@@ -7,6 +7,6 @@
 
 package testing
 
-func GetCoverage() float64 {
+func getCoverage() float64 {
 	return 0
 }
