@@ -9,6 +9,9 @@ const (
 	// SpanTypeTest marks a span as a test execution.
 	SpanTypeTest = "test"
 
+	// SpanTypeBenchmark marks a span as a benchmark execution.
+	SpanTypeBenchmark = "benchmark"
+
 	// SpanTypeTestSuite marks a span as a test suite
 	SpanTypeTestSuite = "test_suite_end"
 

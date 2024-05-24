@@ -74,6 +74,7 @@ type CiVisibilityTest interface {
 	CloseWithFinishTime(status TestResultStatus, finishTime time.Time)
 	CloseWithFinishTimeAndSkipReason(status TestResultStatus, finishTime time.Time, skipReason string)
 	SetTestFunc(fn *runtime.Func)
+	SetBenchmarkData(measureType string, data map[string]any)
 }
 
 // common

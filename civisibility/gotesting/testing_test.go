@@ -7,11 +7,10 @@ package gotesting
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
-	"unsafe"
 
 	ddhttp "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 	ddtracer "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -115,29 +114,13 @@ func TestSkip(t *testing.T) {
 	GetTest(t).Skip("Nothing to do here, skipping!")
 }
 
-func TestFail(t *testing.T) {
-	GetTest(t).Fail()
-}
-
-func TestError(t *testing.T) {
-	GetTest(t).Error("This is my: ", "Error")
-}
-
 func BenchmarkFirst(b *testing.B) {
-	fmt.Println("Begin", b.N, b.Elapsed())
-	defer func() {
-		fmt.Println("End")
-	}()
-
-	indirectValue := reflect.Indirect(reflect.ValueOf(b))
-	member := indirectValue.FieldByName("level")
-	if member.IsValid() {
-		fmt.Println(*(*int)(unsafe.Pointer(member.UnsafeAddr())))
-		*(*int)(unsafe.Pointer(member.UnsafeAddr())) = 0
-	}
-
-	r := b.Run(b.Name(), func(b *testing.B) {
-
+	nb := GetBenchmark(b)
+	nb.Run("child01", func(b *testing.B) {
+		math.Sqrt(42)
 	})
-	fmt.Println(r)
+
+	nb.Run("child02", func(b *testing.B) {
+		math.Log(96)
+	})
 }

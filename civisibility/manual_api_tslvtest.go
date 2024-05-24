@@ -131,3 +131,9 @@ func (t *tslvTest) SetTestFunc(fn *runtime.Func) {
 		}
 	}
 }
+func (t *tslvTest) SetBenchmarkData(measureType string, data map[string]any) {
+	t.span.SetTag(constants.TestType, constants.SpanTypeBenchmark)
+	for k, v := range data {
+		t.span.SetTag(fmt.Sprintf("benchmark.%s.%s", measureType, k), v)
+	}
+}

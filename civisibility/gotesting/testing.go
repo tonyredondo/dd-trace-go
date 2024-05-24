@@ -6,16 +6,13 @@
 package gotesting
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"reflect"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-	"unsafe"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
@@ -32,23 +29,29 @@ var (
 	session civisibility.CiVisibilityTestSession
 
 	testInfos       []*testingTInfo
+	benchmarkInfos  []*testingBInfo
 	modulesCounters = map[string]*int32{}
 	suitesCounters  = map[string]*int32{}
-
-	ciVisibilityTests      = map[*testing.T]civisibility.CiVisibilityTest{}
-	ciVisibilityTestsMutex sync.RWMutex
 )
 
 type (
+	commonInfo struct {
+		moduleName string
+		suiteName  string
+		testName   string
+	}
+
 	testingTInfo struct {
+		commonInfo
 		originalFunc func(*testing.T)
-		moduleName   string
-		suiteName    string
-		testName     string
+	}
+
+	testingBInfo struct {
+		commonInfo
+		originalFunc func(b *testing.B)
 	}
 
 	M testing.M
-	T testing.T
 )
 
 func (ddm *M) Run() int {
@@ -57,20 +60,38 @@ func (ddm *M) Run() int {
 
 	session = civisibility.CreateTestSession()
 
-	// Let's access to the inner Test array and instrument them
 	m := (*testing.M)(ddm)
-	internalTests := getInternalTestArray(m)
-	if internalTests != nil {
 
+	// Access to the inner Test array and instrument them
+	ddm.instrumentInternalTests(getInternalTestArray(m))
+
+	// Access to the inner Benchmark array and instrument them
+	ddm.instrumentInternalBenchmarks(getInternalBenchmarkArray(m))
+
+	var exitCode = m.Run()
+	coveragePercentage := getCoverage()
+	if testing.CoverMode() != "" {
+		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
+		session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)
+	}
+
+	session.Close(exitCode)
+	return exitCode
+}
+
+func (ddm *M) instrumentInternalTests(internalTests *[]testing.InternalTest) {
+	if internalTests != nil {
 		// Extract info from internal tests
 		testInfos = make([]*testingTInfo, len(*internalTests))
 		for idx, test := range *internalTests {
 			moduleName, suiteName := utils.GetModuleAndSuiteName(reflect.Indirect(reflect.ValueOf(test.F)).Pointer())
 			testInfo := &testingTInfo{
 				originalFunc: test.F,
-				moduleName:   moduleName,
-				suiteName:    suiteName,
-				testName:     test.Name,
+				commonInfo: commonInfo{
+					moduleName: moduleName,
+					suiteName:  suiteName,
+					testName:   test.Name,
+				},
 			}
 
 			if _, ok := modulesCounters[moduleName]; !ok {
@@ -98,16 +119,6 @@ func (ddm *M) Run() int {
 		}
 		*internalTests = newTestArray
 	}
-
-	var exitCode = m.Run()
-	coveragePercentage := getCoverage()
-	if testing.CoverMode() != "" {
-		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
-		session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)
-	}
-
-	session.Close(exitCode)
-	return exitCode
 }
 
 func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
@@ -149,161 +160,154 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 	}
 }
 
+func (ddm *M) instrumentInternalBenchmarks(internalBenchmarks *[]testing.InternalBenchmark) {
+	if internalBenchmarks != nil {
+		// Extract info from internal benchmarks
+		benchmarkInfos = make([]*testingBInfo, len(*internalBenchmarks))
+		for idx, benchmark := range *internalBenchmarks {
+			moduleName, suiteName := utils.GetModuleAndSuiteName(reflect.Indirect(reflect.ValueOf(benchmark.F)).Pointer())
+			benchmarkInfo := &testingBInfo{
+				originalFunc: benchmark.F,
+				commonInfo: commonInfo{
+					moduleName: moduleName,
+					suiteName:  suiteName,
+					testName:   benchmark.Name,
+				},
+			}
+
+			if _, ok := modulesCounters[moduleName]; !ok {
+				var v int32 = 0
+				modulesCounters[moduleName] = &v
+			}
+			atomic.AddInt32(modulesCounters[moduleName], 1)
+
+			if _, ok := suitesCounters[suiteName]; !ok {
+				var v int32 = 0
+				suitesCounters[suiteName] = &v
+			}
+			atomic.AddInt32(suitesCounters[suiteName], 1)
+
+			benchmarkInfos[idx] = benchmarkInfo
+		}
+
+		// Create a new instrumented internal benchmarks
+		newBenchmarkArray := make([]testing.InternalBenchmark, len(*internalBenchmarks))
+		for idx, benchmarkInfo := range benchmarkInfos {
+			newBenchmarkArray[idx] = testing.InternalBenchmark{
+				Name: benchmarkInfo.testName,
+				F:    ddm.executeInternalBenchmark(benchmarkInfo),
+			}
+		}
+
+		*internalBenchmarks = newBenchmarkArray
+	}
+}
+
+func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testing.B) {
+	return func(b *testing.B) {
+
+		// decrement level
+		getBenchmarkPrivateFields(b).AddLevel(-1)
+
+		startTime := time.Now()
+		originalFunc := runtime.FuncForPC(reflect.Indirect(reflect.ValueOf(benchmarkInfo.originalFunc)).Pointer())
+		module := session.GetOrCreateModuleWithFrameworkAndStartTime(benchmarkInfo.moduleName, testFramework, runtime.Version(), startTime)
+		suite := module.GetOrCreateSuiteWithStartTime(benchmarkInfo.suiteName, startTime)
+		test := suite.CreateTestWithStartTime(benchmarkInfo.testName, startTime)
+		test.SetTestFunc(originalFunc)
+
+		// run original benchmark
+		var iPfOfB *benchmarkPrivateFields
+		var recoverFunc *func(r any)
+		b.Run(b.Name(), func(b *testing.B) {
+			// stop the timer to do the initialization and replacements
+			b.StopTimer()
+
+			defer func() {
+				if r := recover(); r != nil {
+					if recoverFunc != nil {
+						fn := *recoverFunc
+						fn(r)
+					}
+					panic(r)
+				}
+			}()
+
+			// enable allocations reporting
+			b.ReportAllocs()
+			// first time we get the private fields of the inner testing.B
+			iPfOfB = getBenchmarkPrivateFields(b)
+			// replace this function with the original one (this should be executed only once - the first iteration[b.run1])
+			*iPfOfB.benchFunc = benchmarkInfo.originalFunc
+			// set b to the civisibility test
+			setCiVisibilityBenchmark(b, test)
+
+			// enable the timer again
+			b.StartTimer()
+			// warmup the original func
+			benchmarkInfo.originalFunc(b)
+		})
+
+		endTime := time.Now()
+		results := iPfOfB.result
+		test.SetBenchmarkData("duration", map[string]any{
+			"run":  results.N,
+			"mean": results.NsPerOp(),
+		})
+		test.SetBenchmarkData("memory_total_operations", map[string]any{
+			"run":            results.N,
+			"mean":           results.AllocsPerOp(),
+			"statistics.max": results.MemAllocs,
+		})
+		test.SetBenchmarkData("mean_heap_allocations", map[string]any{
+			"run":  results.N,
+			"mean": results.AllocedBytesPerOp(),
+		})
+		test.SetBenchmarkData("total_heap_allocations", map[string]any{
+			"run":  results.N,
+			"mean": iPfOfB.result.MemBytes,
+		})
+		if len(results.Extra) > 0 {
+			mapConverted := map[string]any{}
+			for k, v := range results.Extra {
+				mapConverted[k] = v
+			}
+			test.SetBenchmarkData("extra", mapConverted)
+		}
+
+		panicFunc := func(r any) {
+			// Panic handling
+			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+			suite.SetTag(ext.Error, true)
+			module.SetTag(ext.Error, true)
+			test.Close(civisibility.StatusFail)
+			checkModuleAndSuite(module, suite)
+			internal.ExitCiVisibility()
+		}
+		recoverFunc = &panicFunc
+
+		// Normal finalization
+		if iPfOfB.B.Failed() {
+			test.SetTag(ext.Error, true)
+			suite.SetTag(ext.Error, true)
+			module.SetTag(ext.Error, true)
+			test.CloseWithFinishTime(civisibility.StatusFail, endTime)
+		} else if iPfOfB.B.Skipped() {
+			test.CloseWithFinishTime(civisibility.StatusSkip, endTime)
+		} else {
+			test.CloseWithFinishTime(civisibility.StatusPass, endTime)
+		}
+
+		checkModuleAndSuite(module, suite)
+	}
+}
+
 func RunM(m *testing.M) int {
 	return (*M)(m).Run()
 }
 
 func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
-}
-
-func GetTest(t *testing.T) *T {
-	return (*T)(t)
-}
-
-func (ddt *T) Run(name string, f func(*testing.T)) bool {
-	fReflect := reflect.Indirect(reflect.ValueOf(f))
-	moduleName, suiteName := utils.GetModuleAndSuiteName(fReflect.Pointer())
-	originalFunc := runtime.FuncForPC(fReflect.Pointer())
-	// let's increment the test count in the module
-	atomic.AddInt32(modulesCounters[moduleName], 1)
-	// let's increment the test count in the suite
-	atomic.AddInt32(suitesCounters[suiteName], 1)
-
-	t := (*testing.T)(ddt)
-	return t.Run(name, func(t *testing.T) {
-		module := session.GetOrCreateModuleWithFramework(moduleName, testFramework, runtime.Version())
-		suite := module.GetOrCreateSuite(suiteName)
-		test := suite.CreateTest(t.Name())
-		test.SetTestFunc(originalFunc)
-		setCiVisibilityTest(t, test)
-		defer func() {
-			if r := recover(); r != nil {
-				// Panic handling
-				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
-				test.Close(civisibility.StatusFail)
-				checkModuleAndSuite(module, suite)
-				internal.ExitCiVisibility()
-				panic(r)
-			} else {
-				// Normal finalization
-				if t.Failed() {
-					test.SetTag(ext.Error, true)
-					suite.SetTag(ext.Error, true)
-					module.SetTag(ext.Error, true)
-					test.Close(civisibility.StatusFail)
-				} else if t.Skipped() {
-					test.Close(civisibility.StatusSkip)
-				} else {
-					test.Close(civisibility.StatusPass)
-				}
-				checkModuleAndSuite(module, suite)
-			}
-		}()
-
-		f(t)
-	})
-}
-
-func (ddt *T) Context() context.Context {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		return ciTest.Context()
-	}
-
-	return context.Background()
-}
-
-func (ddt *T) Fail() {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(2))
-	}
-
-	t.Fail()
-}
-
-func (ddt *T) FailNow() {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(2))
-	}
-
-	internal.ExitCiVisibility()
-	t.FailNow()
-}
-
-func (ddt *T) Error(args ...any) {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(2))
-	}
-
-	t.Error(args...)
-}
-
-func (ddt *T) Errorf(format string, args ...any) {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
-	}
-
-	t.Errorf(format, args...)
-}
-
-func (ddt *T) Fatal(args ...any) {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(2))
-	}
-
-	t.Fatal(args...)
-}
-
-func (ddt *T) Fatalf(format string, args ...any) {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
-	}
-
-	t.Fatalf(format, args...)
-}
-
-func (ddt *T) Skip(args ...any) {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprint(args...))
-	}
-
-	t.Skip(args...)
-}
-
-func (ddt *T) Skipf(format string, args ...any) {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprintf(format, args...))
-	}
-
-	t.Skipf(format, args...)
-}
-
-func (ddt *T) SkipNow() {
-	t := (*testing.T)(ddt)
-	ciTest := getCiVisibilityTest(t)
-	if ciTest != nil {
-		ciTest.Close(civisibility.StatusSkip)
-	}
-
-	t.SkipNow()
 }
 
 func checkModuleAndSuite(module civisibility.CiVisibilityTestModule, suite civisibility.CiVisibilityTestSuite) {
@@ -316,31 +320,4 @@ func checkModuleAndSuite(module civisibility.CiVisibilityTestModule, suite civis
 	if atomic.AddInt32(modulesCounters[module.Name()], -1) <= 0 {
 		module.Close()
 	}
-}
-
-// get the pointer to the internal test array
-func getInternalTestArray(m *testing.M) *[]testing.InternalTest {
-	indirectValue := reflect.Indirect(reflect.ValueOf(m))
-	member := indirectValue.FieldByName("tests")
-	if member.IsValid() {
-		return (*[]testing.InternalTest)(unsafe.Pointer(member.UnsafeAddr()))
-	}
-	return nil
-}
-
-func getCiVisibilityTest(t *testing.T) civisibility.CiVisibilityTest {
-	ciVisibilityTestsMutex.RLock()
-	defer ciVisibilityTestsMutex.RUnlock()
-
-	if v, ok := ciVisibilityTests[t]; ok {
-		return v
-	}
-
-	return nil
-}
-
-func setCiVisibilityTest(t *testing.T, ciTest civisibility.CiVisibilityTest) {
-	ciVisibilityTestsMutex.Lock()
-	defer ciVisibilityTestsMutex.Unlock()
-	ciVisibilityTests[t] = ciTest
 }
