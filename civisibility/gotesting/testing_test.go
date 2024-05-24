@@ -75,7 +75,7 @@ func TestWithExternalCalls(oT *testing.T) {
 
 		// if we want to use the test span as a parent of a child span
 		// we can extract the SpanContext and use it in other integrations
-		ctx := (*T)(oT).Context()
+		ctx := (*T)(t).Context()
 
 		rt := ddhttp.WrapRoundTripper(http.DefaultTransport)
 		client := &http.Client{
@@ -97,7 +97,7 @@ func TestWithExternalCalls(oT *testing.T) {
 
 		// we can also add custom tags to the test span by retrieving the
 		// context and call the `ddtracer.SpanFromContext` api
-		ctx := (*T)(oT).Context()
+		ctx := (*T)(t).Context()
 		span, _ := ddtracer.SpanFromContext(ctx)
 
 		customNamer := func(req *http.Request) string {
