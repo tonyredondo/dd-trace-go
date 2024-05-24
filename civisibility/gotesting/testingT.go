@@ -28,10 +28,18 @@ var (
 
 type T testing.T
 
+// GetTest is a helper to return *gotesting.T from *testing.T
+// internally is just a (*gotesting.T)(t) cast
 func GetTest(t *testing.T) *T {
 	return (*T)(t)
 }
 
+// Run runs f as a subtest of t called name. It runs f in a separate goroutine
+// and blocks until f returns or calls t.Parallel to become a parallel test.
+// Run reports whether f succeeded (or at least did not fail before calling t.Parallel).
+//
+// Run may be called simultaneously from multiple goroutines, but all such calls
+// must return before the outer test function for t returns.
 func (ddt *T) Run(name string, f func(*testing.T)) bool {
 	fReflect := reflect.Indirect(reflect.ValueOf(f))
 	moduleName, suiteName := utils.GetModuleAndSuiteName(fReflect.Pointer())
@@ -76,6 +84,9 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 	})
 }
 
+// Context returns the CI Visibility context of the Test span
+// This may be used to create test's children spans useful for
+// integration tests
 func (ddt *T) Context() context.Context {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -86,6 +97,7 @@ func (ddt *T) Context() context.Context {
 	return context.Background()
 }
 
+// Failed reports whether the function has failed.
 func (ddt *T) Fail() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -96,6 +108,14 @@ func (ddt *T) Fail() {
 	t.Fail()
 }
 
+// FailNow marks the function as having failed and stops its execution
+// by calling runtime.Goexit (which then runs all deferred calls in the
+// current goroutine).
+// Execution will continue at the next test or benchmark.
+// FailNow must be called from the goroutine running the
+// test or benchmark function, not from other goroutines
+// created during the test. Calling FailNow does not stop
+// those other goroutines.
 func (ddt *T) FailNow() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -103,10 +123,10 @@ func (ddt *T) FailNow() {
 		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(2))
 	}
 
-	internal.ExitCiVisibility()
 	t.FailNow()
 }
 
+// Error is equivalent to Log followed by Fail.
 func (ddt *T) Error(args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -117,6 +137,7 @@ func (ddt *T) Error(args ...any) {
 	t.Error(args...)
 }
 
+// Errorf is equivalent to Logf followed by Fail.
 func (ddt *T) Errorf(format string, args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -127,6 +148,7 @@ func (ddt *T) Errorf(format string, args ...any) {
 	t.Errorf(format, args...)
 }
 
+// Fatal is equivalent to Log followed by FailNow.
 func (ddt *T) Fatal(args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -137,6 +159,7 @@ func (ddt *T) Fatal(args ...any) {
 	t.Fatal(args...)
 }
 
+// Fatalf is equivalent to Logf followed by FailNow.
 func (ddt *T) Fatalf(format string, args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -147,6 +170,7 @@ func (ddt *T) Fatalf(format string, args ...any) {
 	t.Fatalf(format, args...)
 }
 
+// Skip is equivalent to Log followed by SkipNow.
 func (ddt *T) Skip(args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -157,6 +181,7 @@ func (ddt *T) Skip(args ...any) {
 	t.Skip(args...)
 }
 
+// Skipf is equivalent to Logf followed by SkipNow.
 func (ddt *T) Skipf(format string, args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -167,6 +192,14 @@ func (ddt *T) Skipf(format string, args ...any) {
 	t.Skipf(format, args...)
 }
 
+// SkipNow marks the test as having been skipped and stops its execution
+// by calling runtime.Goexit.
+// If a test fails (see Error, Errorf, Fail) and is then skipped,
+// it is still considered to have failed.
+// Execution will continue at the next test or benchmark. See also FailNow.
+// SkipNow must be called from the goroutine running the test, not from
+// other goroutines created during the test. Calling SkipNow does not stop
+// those other goroutines.
 func (ddt *T) SkipNow() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -175,6 +208,32 @@ func (ddt *T) SkipNow() {
 	}
 
 	t.SkipNow()
+}
+
+// Parallel signals that this test is to be run in parallel with (and only with)
+// other parallel tests. When a test is run multiple times due to use of
+// -test.count or -test.cpu, multiple instances of a single test never run in
+// parallel with each other.
+func (ddt *T) Parallel() {
+	(*testing.T)(ddt).Parallel()
+}
+
+// Deadline reports the time at which the test binary will have
+// exceeded the timeout specified by the -timeout flag.
+//
+// The ok result is false if the -timeout flag indicates “no timeout” (0).
+func (ddt *T) Deadline() (deadline time.Time, ok bool) {
+	return (*testing.T)(ddt).Deadline()
+}
+
+// Setenv calls os.Setenv(key, value) and uses Cleanup to
+// restore the environment variable to its original value
+// after the test.
+//
+// Because Setenv affects the whole process, it cannot be used
+// in parallel tests or tests with parallel ancestors.
+func (ddt *T) Setenv(key, value string) {
+	(*testing.T)(ddt).Setenv(key, value)
 }
 
 func getCiVisibilityTest(t *testing.T) civisibility.CiVisibilityTest {
