@@ -36,8 +36,9 @@ var (
 
 func EnsureCiVisibilityInitialization() {
 	ciVisibilityInitializationOnce.Do(func() {
-		// Preload all CI and Git tags.
+		// Preload all CI and Git and CodeOwners tags.
 		ciTags := utils.GetCiTags()
+		_ = utils.GetCodeOwners()
 
 		// Check if DD_SERVICE has been set; otherwise we default to repo name.
 		var opts []tracer.StartOption

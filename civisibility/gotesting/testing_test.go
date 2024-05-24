@@ -7,9 +7,9 @@ package gotesting
 
 import (
 	"fmt"
-	"math"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	ddhttp "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
@@ -17,21 +17,27 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	RunAndExit(m)
+
+	// (*M)(m).Run() cast m to gotesting.M and just run
+	// or use a helper method gotesting.RunM(m)
+
+	// os.Exit((*M)(m).Run())
+	os.Exit(RunM(m))
 }
 
 func TestMyTest01(t *testing.T) {
-	t.Log("My First Test")
 }
 
-func TestMyTest02(ot *testing.T) {
-	ot.Log("My First Test 2")
-	t := (*T)(ot)
+func TestMyTest02(gt *testing.T) {
+
+	// To instrument subTests we just need to cast
+	// testing.T to our gotesting.T
+	// using: newT := (*gotesting.T)(t)
+	// Then all testing.T will be available but instrumented
+	t := (*T)(gt)
 
 	t.Run("sub01", func(oT2 *testing.T) {
-
-		t2 := GetTest(oT2)
-
+		t2 := (*T)(oT2)
 		t2.Log("From sub01")
 		t2.Run("sub03", func(t3 *testing.T) {
 			t3.Log("From sub03")
@@ -39,9 +45,8 @@ func TestMyTest02(ot *testing.T) {
 	})
 }
 
-func Test_Foo(t *testing.T) {
-	ddt := GetTest(t)
-
+func Test_Foo(gt *testing.T) {
+	t := (*T)(gt)
 	var tests = []struct {
 		name  string
 		input string
@@ -52,14 +57,14 @@ func Test_Foo(t *testing.T) {
 		{"duck should return animal", "duck", "animal"},
 	}
 	for _, test := range tests {
-		ddt.Run(test.name, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			t.Log(test.name)
 		})
 	}
 }
 
 func TestWithExternalCalls(oT *testing.T) {
-	t := GetTest(oT)
+	t := (*T)(oT)
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Hello World"))
@@ -67,7 +72,10 @@ func TestWithExternalCalls(oT *testing.T) {
 	defer s.Close()
 
 	t.Run("default", func(t *testing.T) {
-		ctx := GetTest(t).Context()
+
+		// if we want to use the test span as a parent of a child span
+		// we can extract the SpanContext and use it in other integrations
+		ctx := (*T)(oT).Context()
 
 		rt := ddhttp.WrapRoundTripper(http.DefaultTransport)
 		client := &http.Client{
@@ -79,17 +87,23 @@ func TestWithExternalCalls(oT *testing.T) {
 			t.FailNow()
 		}
 
+		// Use the span context here so the http span will appear as a child of the test
 		req = req.WithContext(ctx)
 
 		client.Do(req)
 	})
 
 	t.Run("custom-name", func(t *testing.T) {
-		ctx := GetTest(t).Context()
+
+		// we can also add custom tags to the test span by retrieving the
+		// context and call the `ddtracer.SpanFromContext` api
+		ctx := (*T)(oT).Context()
 		span, _ := ddtracer.SpanFromContext(ctx)
 
 		customNamer := func(req *http.Request) string {
 			value := fmt.Sprintf("%s %s", req.Method, req.URL.Path)
+
+			// Then we can set custom tags to that test span
 			span.SetTag("customNamer.Value", value)
 			return value
 		}
@@ -104,23 +118,38 @@ func TestWithExternalCalls(oT *testing.T) {
 			t.FailNow()
 		}
 
+		// Use the span context here so the http span will appear as a child of the test
 		req = req.WithContext(ctx)
 
 		client.Do(req)
 	})
 }
 
-func TestSkip(t *testing.T) {
-	GetTest(t).Skip("Nothing to do here, skipping!")
+func TestSkip(gt *testing.T) {
+	t := (*T)(gt)
+
+	// because we use the instrumented Skip
+	// the message will be reported as the skip reason.
+	t.Skip("Nothing to do here, skipping!")
 }
 
-func BenchmarkFirst(b *testing.B) {
-	nb := GetBenchmark(b)
-	nb.Run("child01", func(b *testing.B) {
-		math.Sqrt(42)
+func BenchmarkFirst(gb *testing.B) {
+
+	// Same happens with sub benchmarks
+	// we just need to cast testing.B to gotesting.B
+	// using: newB := (*gotesting.B)(b)
+	b := (*B)(gb)
+
+	var mapArray []map[string]string
+	b.Run("child01", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mapArray = append(mapArray, map[string]string{})
+		}
 	})
 
-	nb.Run("child02", func(b *testing.B) {
-		math.Log(96)
+	b.Run("child02", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			mapArray = append(mapArray, map[string]string{})
+		}
 	})
 }
