@@ -10,10 +10,11 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 	"unsafe"
 )
 
+// getFieldPointerFrom gets an unsafe.Pointer (gc-safe type of pointer) to a struct field
+// useful to get or set values to private field
 func getFieldPointerFrom(value any, fieldName string) (unsafe.Pointer, error) {
 	indirectValue := reflect.Indirect(reflect.ValueOf(value))
 	member := indirectValue.FieldByName(fieldName)
@@ -26,7 +27,8 @@ func getFieldPointerFrom(value any, fieldName string) (unsafe.Pointer, error) {
 
 // TESTING
 
-// get the pointer to the internal test array
+// getInternalTestArray gets the pointer to the testing.InternalTest array inside a
+// testing.M instance containing all the "root" tests
 func getInternalTestArray(m *testing.M) *[]testing.InternalTest {
 	if ptr, err := getFieldPointerFrom(m, "tests"); err == nil {
 		return (*[]testing.InternalTest)(ptr)
@@ -37,6 +39,8 @@ func getInternalTestArray(m *testing.M) *[]testing.InternalTest {
 // BENCHMARKS
 
 // get the pointer to the internal benchmark array
+// getInternalBenchmarkArray gets the pointer to the testing.InternalBenchmark array inside
+// a testing.M instance containing all the "root" benchmarks
 func getInternalBenchmarkArray(m *testing.M) *[]testing.InternalBenchmark {
 	if ptr, err := getFieldPointerFrom(m, "benchmarks"); err == nil {
 		return (*[]testing.InternalBenchmark)(ptr)
@@ -44,14 +48,15 @@ func getInternalBenchmarkArray(m *testing.M) *[]testing.InternalBenchmark {
 	return nil
 }
 
+// commonPrivateFields is collection of required private fields from testing.common
 type commonPrivateFields struct {
-	mu       *sync.RWMutex
-	level    *int
-	start    *time.Time // Time test or benchmark started
-	duration *time.Duration
-	name     *string // Name of test or benchmark.
+	mu    *sync.RWMutex
+	level *int
+	name  *string // Name of test or benchmark.
 }
 
+// AddLevel increase or decrease the testing.common.level field value, used by
+// testing.B to create the name of the benchmark test
 func (c *commonPrivateFields) AddLevel(delta int) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -59,6 +64,8 @@ func (c *commonPrivateFields) AddLevel(delta int) int {
 	return *c.level
 }
 
+// benchmarkPrivateFields is a collection of required private fields from testing.B
+// also contains a pointer to the original testing.B for easy access
 type benchmarkPrivateFields struct {
 	commonPrivateFields
 	B         *testing.B
@@ -66,6 +73,8 @@ type benchmarkPrivateFields struct {
 	result    *testing.BenchmarkResult
 }
 
+// getBenchmarkPrivateFields is a method to retrieve all required privates field from
+// testing.B, returning a benchmarkPrivateFields instance
 func getBenchmarkPrivateFields(b *testing.B) *benchmarkPrivateFields {
 	benchFields := &benchmarkPrivateFields{
 		B: b,
@@ -77,12 +86,6 @@ func getBenchmarkPrivateFields(b *testing.B) *benchmarkPrivateFields {
 	}
 	if ptr, err := getFieldPointerFrom(b, "level"); err == nil {
 		benchFields.level = (*int)(ptr)
-	}
-	if ptr, err := getFieldPointerFrom(b, "start"); err == nil {
-		benchFields.start = (*time.Time)(ptr)
-	}
-	if ptr, err := getFieldPointerFrom(b, "duration"); err == nil {
-		benchFields.duration = (*time.Duration)(ptr)
 	}
 	if ptr, err := getFieldPointerFrom(b, "name"); err == nil {
 		benchFields.name = (*string)(ptr)

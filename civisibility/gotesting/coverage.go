@@ -3,40 +3,13 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024 Datadog, Inc.
 
-//go:build go1.20
+//go:build !go1.20
 
 package gotesting
 
-import (
-	"bytes"
-	"io"
-	"os"
-	"regexp"
-	"runtime/coverage"
-	"strconv"
-	"testing"
-	_ "unsafe"
-)
+import "testing"
 
-//go:linkname runtime_coverage_processCoverTestDirInternal runtime/coverage.processCoverTestDirInternal
-func runtime_coverage_processCoverTestDirInternal(dir string, cfile string, cm string, cpkg string, w io.Writer) error
-
-// force the package to be included in the binary so the linker (in go:linkname) can find the symbols
-var _ = coverage.ClearCounters
-
+// getCoverage prior to go1.20 the old coverage format is the default so we can use the normal testing.Coverage call
 func getCoverage() float64 {
-
-	buffer := new(bytes.Buffer)
-	err := runtime_coverage_processCoverTestDirInternal(os.Getenv("GOCOVERDIR"), "", testing.CoverMode(), "", buffer)
-	if err == nil {
-		re := regexp.MustCompile(`(?si)coverage: (.*)%`)
-		results := re.FindStringSubmatch(buffer.String())
-		if len(results) == 2 {
-			percentage, err := strconv.ParseFloat(results[1], 64)
-			if err == nil {
-				return percentage
-			}
-		}
-	}
-	return 0
+	return testing.Coverage()
 }
