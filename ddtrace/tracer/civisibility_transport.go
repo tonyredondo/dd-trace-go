@@ -7,14 +7,16 @@ package tracer
 
 import (
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/version"
 	"io"
 	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/internal"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/version"
 )
 
 const (
@@ -49,15 +51,15 @@ func newCiVisibilityTransport(config *config) *civisibilityTransport {
 	}
 
 	// Check if the agentless environment variable was set.
-	agentlessEnabled := internal.BoolEnv("DD_CIVISIBILITY_AGENTLESS_ENABLED", false)
+	agentlessEnabled := internal.BoolEnv(constants.CiVisibilityAgentlessEnabledEnvironmentVariable, false)
 
 	testCycleUrl := ""
 	if agentlessEnabled {
-		defaultHeaders["dd-api-key"] = os.Getenv("DD_API_KEY")
+		defaultHeaders["dd-api-key"] = os.Getenv(constants.ApiKeyEnvironmentVariable)
 
 		// If agentless is enabled let's check if the custom agentless url environment variable is set
 		agentlessUrl := ""
-		if v := os.Getenv("DD_CIVISIBILITY_AGENTLESS_URL"); v != "" {
+		if v := os.Getenv(constants.CiVisibilityAgentlessUrlEnvironmentVariable); v != "" {
 			agentlessUrl = v
 		}
 
@@ -113,7 +115,7 @@ func (t *civisibilityTransport) send(p *payload) (body io.ReadCloser, err error)
 		// return a nice error.
 		msg := make([]byte, 1000)
 		n, _ := response.Body.Read(msg)
-		response.Body.Close()
+		_ = response.Body.Close()
 		txt := http.StatusText(code)
 		if n > 0 {
 			return nil, fmt.Errorf("%s (Status: %s)", msg[:n], txt)
@@ -123,8 +125,8 @@ func (t *civisibilityTransport) send(p *payload) (body io.ReadCloser, err error)
 	return response.Body, nil
 }
 
-func (t *civisibilityTransport) sendStats(s *statsPayload) error {
-	// Stats is not supported by CI Visibility agentless / evp proxy
+func (t *civisibilityTransport) sendStats(*statsPayload) error {
+	// Stats are not supported by CI Visibility agentless / evp proxy
 	return nil
 }
 

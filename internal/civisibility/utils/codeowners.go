@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
 type CodeOwners struct {
@@ -31,7 +33,10 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		err = file.Close()
+		logger.Warn("Error closing codeowners file: ", err)
+	}()
 
 	var entriesList []Entry
 	var sectionsList []string

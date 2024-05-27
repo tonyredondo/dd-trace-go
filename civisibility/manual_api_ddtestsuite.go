@@ -8,18 +8,18 @@ package civisibility
 import (
 	"context"
 	"fmt"
-	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 )
 
 // Test Suite
 
-var _ CiVisibilityTestSuite = (*tslvTestSuite)(nil)
+var _ DdTestSuite = (*tslvTestSuite)(nil)
 
 type tslvTestSuite struct {
 	ciVisibilityCommon
@@ -28,7 +28,7 @@ type tslvTestSuite struct {
 	name    string
 }
 
-func createTestSuite(module *tslvTestModule, name string, startTime time.Time) CiVisibilityTestSuite {
+func createTestSuite(module *tslvTestModule, name string, startTime time.Time) DdTestSuite {
 	if module == nil {
 		return nil
 	}
@@ -75,9 +75,9 @@ func createTestSuite(module *tslvTestModule, name string, startTime time.Time) C
 	return suite
 }
 
-func (t *tslvTestSuite) Name() string                   { return t.name }
-func (t *tslvTestSuite) Module() CiVisibilityTestModule { return t.module }
-func (t *tslvTestSuite) Close()                         { t.CloseWithFinishTime(time.Now()) }
+func (t *tslvTestSuite) Name() string         { return t.name }
+func (t *tslvTestSuite) Module() DdTestModule { return t.module }
+func (t *tslvTestSuite) Close()               { t.CloseWithFinishTime(time.Now()) }
 func (t *tslvTestSuite) CloseWithFinishTime(finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -96,9 +96,9 @@ func (t *tslvTestSuite) SetErrorInfo(errType string, message string, callstack s
 	t.ciVisibilityCommon.SetErrorInfo(errType, message, callstack)
 	t.Module().SetTag(ext.Error, true)
 }
-func (t *tslvTestSuite) CreateTest(name string) CiVisibilityTest {
+func (t *tslvTestSuite) CreateTest(name string) DdTest {
 	return t.CreateTestWithStartTime(name, time.Now())
 }
-func (t *tslvTestSuite) CreateTestWithStartTime(name string, startTime time.Time) CiVisibilityTest {
+func (t *tslvTestSuite) CreateTestWithStartTime(name string, startTime time.Time) DdTest {
 	return createTest(t, name, startTime)
 }

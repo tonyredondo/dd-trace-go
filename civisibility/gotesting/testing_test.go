@@ -35,6 +35,8 @@ func TestMyTest02(gt *testing.T) {
 	// using: newT := (*gotesting.T)(t)
 	// Then all testing.T will be available but instrumented
 	t := (*T)(gt)
+	// or
+	t = GetTest(gt)
 
 	t.Run("sub01", func(oT2 *testing.T) {
 		t2 := (*T)(oT2)
@@ -67,7 +69,7 @@ func TestWithExternalCalls(oT *testing.T) {
 	t := (*T)(oT)
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello World"))
+		_, _ = w.Write([]byte("Hello World"))
 	}))
 	defer s.Close()
 
@@ -90,7 +92,7 @@ func TestWithExternalCalls(oT *testing.T) {
 		// Use the span context here so the http span will appear as a child of the test
 		req = req.WithContext(ctx)
 
-		client.Do(req)
+		_, _ = client.Do(req)
 	})
 
 	t.Run("custom-name", func(t *testing.T) {
@@ -121,7 +123,7 @@ func TestWithExternalCalls(oT *testing.T) {
 		// Use the span context here so the http span will appear as a child of the test
 		req = req.WithContext(ctx)
 
-		client.Do(req)
+		_, _ = client.Do(req)
 	})
 }
 
@@ -139,6 +141,8 @@ func BenchmarkFirst(gb *testing.B) {
 	// we just need to cast testing.B to gotesting.B
 	// using: newB := (*gotesting.B)(b)
 	b := (*B)(gb)
+	// or
+	b = GetBenchmark(gb)
 
 	var mapArray []map[string]string
 	b.Run("child01", func(b *testing.B) {

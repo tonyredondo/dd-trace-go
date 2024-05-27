@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	ciVisibilityTests      = map[*testing.T]civisibility.CiVisibilityTest{}
+	ciVisibilityTests      = map[*testing.T]civisibility.DdTest{}
 	ciVisibilityTestsMutex sync.RWMutex
 )
 
@@ -60,7 +60,7 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 			if r := recover(); r != nil {
 				// Panic handling
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
-				test.Close(civisibility.StatusFail)
+				test.Close(civisibility.ResultStatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
 				panic(r)
@@ -70,11 +70,11 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 					test.SetTag(ext.Error, true)
 					suite.SetTag(ext.Error, true)
 					module.SetTag(ext.Error, true)
-					test.Close(civisibility.StatusFail)
+					test.Close(civisibility.ResultStatusFail)
 				} else if t.Skipped() {
-					test.Close(civisibility.StatusSkip)
+					test.Close(civisibility.ResultStatusSkip)
 				} else {
-					test.Close(civisibility.StatusPass)
+					test.Close(civisibility.ResultStatusPass)
 				}
 				checkModuleAndSuite(module, suite)
 			}
@@ -97,7 +97,7 @@ func (ddt *T) Context() context.Context {
 	return context.Background()
 }
 
-// Failed reports whether the function has failed.
+// Fail marks the function as having failed but continues execution.
 func (ddt *T) Fail() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -175,7 +175,7 @@ func (ddt *T) Skip(args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprint(args...))
+		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.ResultStatusSkip, time.Now(), fmt.Sprint(args...))
 	}
 
 	t.Skip(args...)
@@ -186,7 +186,7 @@ func (ddt *T) Skipf(format string, args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprintf(format, args...))
+		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.ResultStatusSkip, time.Now(), fmt.Sprintf(format, args...))
 	}
 
 	t.Skipf(format, args...)
@@ -204,7 +204,7 @@ func (ddt *T) SkipNow() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.Close(civisibility.StatusSkip)
+		ciTest.Close(civisibility.ResultStatusSkip)
 	}
 
 	t.SkipNow()
@@ -236,7 +236,7 @@ func (ddt *T) Setenv(key, value string) {
 	(*testing.T)(ddt).Setenv(key, value)
 }
 
-func getCiVisibilityTest(t *testing.T) civisibility.CiVisibilityTest {
+func getCiVisibilityTest(t *testing.T) civisibility.DdTest {
 	ciVisibilityTestsMutex.RLock()
 	defer ciVisibilityTestsMutex.RUnlock()
 
@@ -247,7 +247,7 @@ func getCiVisibilityTest(t *testing.T) civisibility.CiVisibilityTest {
 	return nil
 }
 
-func setCiVisibilityTest(t *testing.T, ciTest civisibility.CiVisibilityTest) {
+func setCiVisibilityTest(t *testing.T, ciTest civisibility.DdTest) {
 	ciVisibilityTestsMutex.Lock()
 	defer ciVisibilityTestsMutex.Unlock()
 	ciVisibilityTests[t] = ciTest

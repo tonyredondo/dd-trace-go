@@ -8,17 +8,17 @@ package civisibility
 import (
 	"context"
 	"fmt"
-	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 )
 
 // Test Module
 
-var _ CiVisibilityTestModule = (*tslvTestModule)(nil)
+var _ DdTestModule = (*tslvTestModule)(nil)
 
 type tslvTestModule struct {
 	ciVisibilityCommon
@@ -27,10 +27,10 @@ type tslvTestModule struct {
 	name      string
 	framework string
 
-	suites map[string]CiVisibilityTestSuite
+	suites map[string]DdTestSuite
 }
 
-func createTestModule(session *tslvTestSession, name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule {
+func createTestModule(session *tslvTestSession, name string, framework string, frameworkVersion string, startTime time.Time) DdTestModule {
 	// Let's ensure we have the ci visibility properly configured
 	internal.EnsureCiVisibilityInitialization()
 
@@ -72,7 +72,7 @@ func createTestModule(session *tslvTestSession, name string, framework string, f
 		moduleId:  moduleId,
 		name:      name,
 		framework: framework,
-		suites:    map[string]CiVisibilityTestSuite{},
+		suites:    map[string]DdTestSuite{},
 		ciVisibilityCommon: ciVisibilityCommon{
 			startTime: startTime,
 			tags:      moduleTags,
@@ -88,10 +88,10 @@ func createTestModule(session *tslvTestSession, name string, framework string, f
 	return module
 }
 
-func (t *tslvTestModule) Name() string                     { return t.name }
-func (t *tslvTestModule) Framework() string                { return t.framework }
-func (t *tslvTestModule) Session() CiVisibilityTestSession { return t.session }
-func (t *tslvTestModule) Close()                           { t.CloseWithFinishTime(time.Now()) }
+func (t *tslvTestModule) Name() string           { return t.name }
+func (t *tslvTestModule) Framework() string      { return t.framework }
+func (t *tslvTestModule) Session() DdTestSession { return t.session }
+func (t *tslvTestModule) Close()                 { t.CloseWithFinishTime(time.Now()) }
 func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -102,19 +102,19 @@ func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
 	for _, suite := range t.suites {
 		suite.Close()
 	}
-	t.suites = map[string]CiVisibilityTestSuite{}
+	t.suites = map[string]DdTestSuite{}
 
 	t.span.Finish(tracer.FinishTime(finishTime))
 	t.closed = true
 }
-func (t *tslvTestModule) GetOrCreateSuite(name string) CiVisibilityTestSuite {
+func (t *tslvTestModule) GetOrCreateSuite(name string) DdTestSuite {
 	return t.GetOrCreateSuiteWithStartTime(name, time.Now())
 }
-func (t *tslvTestModule) GetOrCreateSuiteWithStartTime(name string, startTime time.Time) CiVisibilityTestSuite {
+func (t *tslvTestModule) GetOrCreateSuiteWithStartTime(name string, startTime time.Time) DdTestSuite {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	var suite CiVisibilityTestSuite
+	var suite DdTestSuite
 	if v, ok := t.suites[name]; ok {
 		suite = v
 	} else {

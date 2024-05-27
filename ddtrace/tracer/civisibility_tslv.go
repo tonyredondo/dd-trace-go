@@ -8,7 +8,6 @@
 package tracer
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/tinylib/msgp/msgp"
@@ -109,23 +108,6 @@ func getCiVisibilityEvent(span *span) *ciVisibilityEvent {
 	default:
 		return createSpanEventFromSpan(span)
 	}
-}
-
-func getSpanFromCiVisibilityEvent(civisibilityEvent *ciVisibilityEvent) *span {
-	s := civisibilityEvent.span
-	if civisibilityEvent.Content.SessionId != 0 {
-		s.SetTag(constants.TestSessionIdTagName, fmt.Sprint(civisibilityEvent.Content.SessionId))
-	}
-	if civisibilityEvent.Content.ModuleId != 0 {
-		s.SetTag(constants.TestModuleIdTagName, fmt.Sprint(civisibilityEvent.Content.ModuleId))
-	}
-	if civisibilityEvent.Content.SuiteId != 0 {
-		s.SetTag(constants.TestSuiteIdTagName, fmt.Sprint(civisibilityEvent.Content.SuiteId))
-	}
-	if civisibilityEvent.Content.CorrelationId != "" {
-		s.SetTag(constants.ItrCorrelationIdTagName, fmt.Sprint(civisibilityEvent.Content.CorrelationId))
-	}
-	return s
 }
 
 func createTestEventFromSpan(span *span) *ciVisibilityEvent {

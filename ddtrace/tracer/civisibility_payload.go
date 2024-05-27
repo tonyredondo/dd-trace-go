@@ -33,7 +33,7 @@ func newCiVisibilityPayload() *civisibilitypayload {
 	return &civisibilitypayload{newPayload()}
 }
 
-// Get complete civisibility payload
+// GetBuffer gets the complete body of the CiVisibility payload
 func (p *civisibilitypayload) GetBuffer(config *config) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(p.payload)

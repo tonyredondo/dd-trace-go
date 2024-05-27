@@ -8,7 +8,6 @@ package civisibility
 import (
 	"context"
 	"fmt"
-	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,13 +15,14 @@ import (
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
 )
 
 // Test Session
 
-var _ CiVisibilityTestSession = (*tslvTestSession)(nil)
+var _ DdTestSession = (*tslvTestSession)(nil)
 
 type tslvTestSession struct {
 	ciVisibilityCommon
@@ -31,10 +31,10 @@ type tslvTestSession struct {
 	workingDirectory string
 	framework        string
 
-	modules map[string]CiVisibilityTestModule
+	modules map[string]DdTestModule
 }
 
-func CreateTestSession() CiVisibilityTestSession {
+func CreateTestSession() DdTestSession {
 	var cmd string
 	if len(os.Args) == 1 {
 		cmd = filepath.Base(os.Args[0])
@@ -49,7 +49,8 @@ func CreateTestSession() CiVisibilityTestSession {
 	}
 	return CreateTestSessionWith(cmd, wd, "", time.Now())
 }
-func CreateTestSessionWith(command string, workingDirectory string, framework string, startTime time.Time) CiVisibilityTestSession {
+
+func CreateTestSessionWith(command string, workingDirectory string, framework string, startTime time.Time) DdTestSession {
 	// Let's ensure we have the ci visibility properly configured
 	internal.EnsureCiVisibilityInitialization()
 
@@ -81,7 +82,7 @@ func CreateTestSessionWith(command string, workingDirectory string, framework st
 		command:          command,
 		workingDirectory: workingDirectory,
 		framework:        framework,
-		modules:          map[string]CiVisibilityTestModule{},
+		modules:          map[string]DdTestModule{},
 		ciVisibilityCommon: ciVisibilityCommon{
 			startTime: startTime,
 			tags:      sessionTags,
@@ -92,7 +93,7 @@ func CreateTestSessionWith(command string, workingDirectory string, framework st
 
 	// We need to ensure to close everything before ci visibility is exiting.
 	// In ci visibility mode we try to never lose data
-	internal.PushCiVisibilityCloseAction(func() { s.Close(StatusFail) })
+	internal.PushCiVisibilityCloseAction(func() { s.Close(ResultStatusFail) })
 
 	return s
 }
@@ -111,7 +112,7 @@ func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time
 	for _, m := range t.modules {
 		m.Close()
 	}
-	t.modules = map[string]CiVisibilityTestModule{}
+	t.modules = map[string]DdTestModule{}
 
 	t.span.SetTag(constants.TestCommandExitCode, exitCode)
 	if exitCode == 0 {
@@ -126,17 +127,17 @@ func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time
 
 	tracer.Flush()
 }
-func (t *tslvTestSession) GetOrCreateModule(name string) CiVisibilityTestModule {
+func (t *tslvTestSession) GetOrCreateModule(name string) DdTestModule {
 	return t.GetOrCreateModuleWithFramework(name, "", "")
 }
-func (t *tslvTestSession) GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) CiVisibilityTestModule {
+func (t *tslvTestSession) GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) DdTestModule {
 	return t.GetOrCreateModuleWithFrameworkAndStartTime(name, framework, frameworkVersion, time.Now())
 }
-func (t *tslvTestSession) GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule {
+func (t *tslvTestSession) GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) DdTestModule {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	var mod CiVisibilityTestModule
+	var mod DdTestModule
 	if v, ok := t.modules[name]; ok {
 		mod = v
 	} else {

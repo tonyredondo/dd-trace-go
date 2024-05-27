@@ -20,12 +20,12 @@ import (
 type TestResultStatus int
 
 const (
-	StatusPass TestResultStatus = 0
-	StatusFail                  = 1
-	StatusSkip                  = 2
+	ResultStatusPass TestResultStatus = 0
+	ResultStatusFail                  = 1
+	ResultStatusSkip                  = 2
 )
 
-type ciVisibilityTslvEvent interface {
+type ddTslvEvent interface {
 	Context() context.Context
 	StartTime() time.Time
 	SetError(err error)
@@ -33,43 +33,43 @@ type ciVisibilityTslvEvent interface {
 	SetTag(key string, value interface{})
 }
 
-type CiVisibilityTestSession interface {
-	ciVisibilityTslvEvent
+type DdTestSession interface {
+	ddTslvEvent
 	Command() string
 	Framework() string
 	WorkingDirectory() string
 	Close(exitCode int)
 	CloseWithFinishTime(exitCode int, finishTime time.Time)
-	GetOrCreateModule(name string) CiVisibilityTestModule
-	GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) CiVisibilityTestModule
-	GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) CiVisibilityTestModule
+	GetOrCreateModule(name string) DdTestModule
+	GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) DdTestModule
+	GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) DdTestModule
 }
 
-type CiVisibilityTestModule interface {
-	ciVisibilityTslvEvent
-	Session() CiVisibilityTestSession
+type DdTestModule interface {
+	ddTslvEvent
+	Session() DdTestSession
 	Framework() string
 	Name() string
 	Close()
 	CloseWithFinishTime(finishTime time.Time)
-	GetOrCreateSuite(name string) CiVisibilityTestSuite
-	GetOrCreateSuiteWithStartTime(name string, startTime time.Time) CiVisibilityTestSuite
+	GetOrCreateSuite(name string) DdTestSuite
+	GetOrCreateSuiteWithStartTime(name string, startTime time.Time) DdTestSuite
 }
 
-type CiVisibilityTestSuite interface {
-	ciVisibilityTslvEvent
-	Module() CiVisibilityTestModule
+type DdTestSuite interface {
+	ddTslvEvent
+	Module() DdTestModule
 	Name() string
 	Close()
 	CloseWithFinishTime(finishTime time.Time)
-	CreateTest(name string) CiVisibilityTest
-	CreateTestWithStartTime(name string, startTime time.Time) CiVisibilityTest
+	CreateTest(name string) DdTest
+	CreateTestWithStartTime(name string, startTime time.Time) DdTest
 }
 
-type CiVisibilityTest interface {
-	ciVisibilityTslvEvent
+type DdTest interface {
+	ddTslvEvent
 	Name() string
-	Suite() CiVisibilityTestSuite
+	Suite() DdTestSuite
 	Close(status TestResultStatus)
 	CloseWithFinishTime(status TestResultStatus, finishTime time.Time)
 	CloseWithFinishTimeAndSkipReason(status TestResultStatus, finishTime time.Time, skipReason string)
@@ -78,7 +78,7 @@ type CiVisibilityTest interface {
 }
 
 // common
-var _ ciVisibilityTslvEvent = (*ciVisibilityCommon)(nil)
+var _ ddTslvEvent = (*ciVisibilityCommon)(nil)
 
 type ciVisibilityCommon struct {
 	startTime time.Time

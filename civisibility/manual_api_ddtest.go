@@ -21,7 +21,7 @@ import (
 
 // Test
 
-var _ CiVisibilityTest = (*tslvTest)(nil)
+var _ DdTest = (*tslvTest)(nil)
 
 type tslvTest struct {
 	ciVisibilityCommon
@@ -29,7 +29,7 @@ type tslvTest struct {
 	name  string
 }
 
-func createTest(suite *tslvTestSuite, name string, startTime time.Time) CiVisibilityTest {
+func createTest(suite *tslvTestSuite, name string, startTime time.Time) DdTest {
 	if suite == nil {
 		return nil
 	}
@@ -69,13 +69,13 @@ func createTest(suite *tslvTestSuite, name string, startTime time.Time) CiVisibi
 
 	// We need to ensure to close everything before ci visibility is exiting.
 	// In ci visibility mode we try to never lose data
-	internal.PushCiVisibilityCloseAction(func() { t.Close(StatusFail) })
+	internal.PushCiVisibilityCloseAction(func() { t.Close(ResultStatusFail) })
 
 	return t
 }
 
 func (t *tslvTest) Name() string                  { return t.name }
-func (t *tslvTest) Suite() CiVisibilityTestSuite  { return t.suite }
+func (t *tslvTest) Suite() DdTestSuite            { return t.suite }
 func (t *tslvTest) Close(status TestResultStatus) { t.CloseWithFinishTime(status, time.Now()) }
 func (t *tslvTest) CloseWithFinishTime(status TestResultStatus, finishTime time.Time) {
 	t.CloseWithFinishTimeAndSkipReason(status, finishTime, "")
@@ -88,11 +88,11 @@ func (t *tslvTest) CloseWithFinishTimeAndSkipReason(status TestResultStatus, fin
 	}
 
 	switch status {
-	case StatusPass:
+	case ResultStatusPass:
 		t.span.SetTag(constants.TestStatus, constants.TestStatusPass)
-	case StatusFail:
+	case ResultStatusFail:
 		t.span.SetTag(constants.TestStatus, constants.TestStatusFail)
-	case StatusSkip:
+	case ResultStatusSkip:
 		t.span.SetTag(constants.TestStatus, constants.TestStatusSkip)
 	}
 
@@ -132,7 +132,7 @@ func (t *tslvTest) SetTestFunc(fn *runtime.Func) {
 	}
 }
 func (t *tslvTest) SetBenchmarkData(measureType string, data map[string]any) {
-	t.span.SetTag(constants.TestType, constants.SpanTypeBenchmark)
+	t.span.SetTag(constants.TestType, constants.TestTypeBenchmark)
 	for k, v := range data {
 		t.span.SetTag(fmt.Sprintf("benchmark.%s.%s", measureType, k), v)
 	}

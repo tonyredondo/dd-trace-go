@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	session civisibility.CiVisibilityTestSession
+	session civisibility.DdTestSession
 
 	testInfos       []*testingTInfo
 	benchmarkInfos  []*testingBInfo
@@ -135,7 +135,7 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
 				suite.SetTag(ext.Error, true)
 				module.SetTag(ext.Error, true)
-				test.Close(civisibility.StatusFail)
+				test.Close(civisibility.ResultStatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
 				panic(r)
@@ -145,11 +145,11 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 					test.SetTag(ext.Error, true)
 					suite.SetTag(ext.Error, true)
 					module.SetTag(ext.Error, true)
-					test.Close(civisibility.StatusFail)
+					test.Close(civisibility.ResultStatusFail)
 				} else if t.Skipped() {
-					test.Close(civisibility.StatusSkip)
+					test.Close(civisibility.ResultStatusSkip)
 				} else {
-					test.Close(civisibility.StatusPass)
+					test.Close(civisibility.ResultStatusPass)
 				}
 
 				checkModuleAndSuite(module, suite)
@@ -280,7 +280,7 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
-			test.Close(civisibility.StatusFail)
+			test.Close(civisibility.ResultStatusFail)
 			checkModuleAndSuite(module, suite)
 			internal.ExitCiVisibility()
 		}
@@ -291,11 +291,11 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 			test.SetTag(ext.Error, true)
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
-			test.CloseWithFinishTime(civisibility.StatusFail, endTime)
+			test.CloseWithFinishTime(civisibility.ResultStatusFail, endTime)
 		} else if iPfOfB.B.Skipped() {
-			test.CloseWithFinishTime(civisibility.StatusSkip, endTime)
+			test.CloseWithFinishTime(civisibility.ResultStatusSkip, endTime)
 		} else {
-			test.CloseWithFinishTime(civisibility.StatusPass, endTime)
+			test.CloseWithFinishTime(civisibility.ResultStatusPass, endTime)
 		}
 
 		checkModuleAndSuite(module, suite)
@@ -310,7 +310,7 @@ func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
 }
 
-func checkModuleAndSuite(module civisibility.CiVisibilityTestModule, suite civisibility.CiVisibilityTestSuite) {
+func checkModuleAndSuite(module civisibility.DdTestModule, suite civisibility.DdTestSuite) {
 	// If all tests in a suite has been executed we can close the suite
 	if atomic.AddInt32(suitesCounters[suite.Name()], -1) <= 0 {
 		suite.Close()

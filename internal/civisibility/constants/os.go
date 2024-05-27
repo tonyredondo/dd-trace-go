@@ -12,6 +12,6 @@ const (
 	// OSVersion indicates version of the operating system.
 	OSVersion = "os.version"
 
-	// OSArchitecture indicates the architecture this sdk is built for (could be 32 bit on a 64 bit system)
+	// OSArchitecture indicates the architecture this sdk is built for (could be 32-bit on a 64-bit system)
 	OSArchitecture = "os.architecture"
 )

@@ -89,7 +89,7 @@ func TestTags(t *testing.T) {
 				tags := line[1]
 
 				if providerName == "github" {
-					// We initialize GITHUB_RUN_ATTEMPT if doesn't exist to avoid using the one set in the github action.
+					// We initialize GITHUB_RUN_ATTEMPT if it doesn't exist to avoid using the one set in the GitHub action.
 					if _, ok := env["GITHUB_RUN_ATTEMPT"]; !ok {
 						env["GITHUB_RUN_ATTEMPT"] = ""
 					}

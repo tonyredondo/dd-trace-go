@@ -25,6 +25,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal"
+	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/namingschema"
@@ -305,7 +306,7 @@ func newConfig(opts ...StartOption) *config {
 	c := new(config)
 	c.sampler = NewAllSampler()
 	// Check if Ci Visibility mode has been enabled
-	c.ciVisibilityEnabled = internal.BoolEnv("DD_CIVISIBILITY_ENABLED", false)
+	c.ciVisibilityEnabled = internal.BoolEnv(constants.CiVisibilityEnabledEnvironmnetVariable, false)
 
 	if c.ciVisibilityEnabled {
 		c.httpClientTimeout = time.Second * 45 // 45 seconds
@@ -421,8 +422,8 @@ func newConfig(opts ...StartOption) *config {
 
 	if c.agentURL == nil {
 		c.agentURL = resolveAgentAddr()
-		if url := internal.AgentURLFromEnv(); url != nil {
-			c.agentURL = url
+		if agentUrl := internal.AgentURLFromEnv(); agentUrl != nil {
+			c.agentURL = agentUrl
 		}
 	}
 	if c.agentURL.Scheme == "unix" {

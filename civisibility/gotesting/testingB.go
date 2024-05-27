@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	ciVisibilityBenchmarks      = map[*testing.B]civisibility.CiVisibilityTest{}
+	ciVisibilityBenchmarks      = map[*testing.B]civisibility.DdTest{}
 	ciVisibilityBenchmarksMutex sync.RWMutex
 
 	subBenchmarkAutoName      = "*--*AUTO*--*"
@@ -129,7 +129,7 @@ func (ddb *B) Run(name string, f func(*testing.B)) bool {
 			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
-			test.Close(civisibility.StatusFail)
+			test.Close(civisibility.ResultStatusFail)
 			checkModuleAndSuite(module, suite)
 			internal.ExitCiVisibility()
 		}
@@ -140,11 +140,11 @@ func (ddb *B) Run(name string, f func(*testing.B)) bool {
 			test.SetTag(ext.Error, true)
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
-			test.CloseWithFinishTime(civisibility.StatusFail, endTime)
+			test.CloseWithFinishTime(civisibility.ResultStatusFail, endTime)
 		} else if iPfOfB.B.Skipped() {
-			test.CloseWithFinishTime(civisibility.StatusSkip, endTime)
+			test.CloseWithFinishTime(civisibility.ResultStatusSkip, endTime)
 		} else {
-			test.CloseWithFinishTime(civisibility.StatusPass, endTime)
+			test.CloseWithFinishTime(civisibility.ResultStatusPass, endTime)
 		}
 
 		checkModuleAndSuite(module, suite)
@@ -164,7 +164,7 @@ func (ddb *B) Context() context.Context {
 	return context.Background()
 }
 
-// Failed reports whether the function has failed.
+// Fail marks the function as having failed but continues execution.
 func (ddb *B) Fail() {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
@@ -243,7 +243,7 @@ func (ddb *B) Skip(args ...any) {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprint(args...))
+		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.ResultStatusSkip, time.Now(), fmt.Sprint(args...))
 	}
 
 	b.Skip(args...)
@@ -254,7 +254,7 @@ func (ddb *B) Skipf(format string, args ...any) {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.StatusSkip, time.Now(), fmt.Sprintf(format, args...))
+		ciTest.CloseWithFinishTimeAndSkipReason(civisibility.ResultStatusSkip, time.Now(), fmt.Sprintf(format, args...))
 	}
 
 	b.Skipf(format, args...)
@@ -272,7 +272,7 @@ func (ddb *B) SkipNow() {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.Close(civisibility.StatusSkip)
+		ciTest.Close(civisibility.ResultStatusSkip)
 	}
 
 	b.SkipNow()
@@ -356,7 +356,7 @@ func (ddb *B) SetParallelism(p int) {
 	(*testing.B)(ddb).SetParallelism(p)
 }
 
-func getCiVisibilityBenchmark(b *testing.B) civisibility.CiVisibilityTest {
+func getCiVisibilityBenchmark(b *testing.B) civisibility.DdTest {
 	ciVisibilityBenchmarksMutex.RLock()
 	defer ciVisibilityBenchmarksMutex.RUnlock()
 
@@ -367,7 +367,7 @@ func getCiVisibilityBenchmark(b *testing.B) civisibility.CiVisibilityTest {
 	return nil
 }
 
-func setCiVisibilityBenchmark(b *testing.B, ciTest civisibility.CiVisibilityTest) {
+func setCiVisibilityBenchmark(b *testing.B, ciTest civisibility.DdTest) {
 	ciVisibilityBenchmarksMutex.Lock()
 	defer ciVisibilityBenchmarksMutex.Unlock()
 	ciVisibilityBenchmarks[b] = ciTest

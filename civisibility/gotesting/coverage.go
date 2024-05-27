@@ -9,7 +9,7 @@ package gotesting
 
 import "testing"
 
-// getCoverage prior to go1.20 the old coverage format is the default so we can use the normal testing.Coverage call
+// getCoverage prior to go1.20 the old coverage format is the default, so we can use the normal testing.Coverage call
 func getCoverage() float64 {
 	return testing.Coverage()
 }
