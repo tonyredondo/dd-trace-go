@@ -19,23 +19,38 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/version"
 )
 
+// Constants for CI Visibility API paths and subdomains.
 const (
-	TestCycleSubdomain = "citestcycle-intake"
-	TestCyclePath      = "api/v2/citestcycle"
-	EvpProxyPath       = "evp_proxy/v2"
+	TestCycleSubdomain = "citestcycle-intake" // Subdomain for test cycle intake.
+	TestCyclePath      = "api/v2/citestcycle" // API path for test cycle.
+	EvpProxyPath       = "evp_proxy/v2"       // Path for EVP proxy.
 )
 
+// Ensure that civisibilityTransport implements the transport interface.
 var _ transport = (*civisibilityTransport)(nil)
 
+// civisibilityTransport is a structure that handles sending CI Visibility payloads
+// to the Datadog endpoint, either in agentless mode or through the EVP proxy.
 type civisibilityTransport struct {
-	config           *config           // config holds the tracer configuration
-	testCycleUrlPath string            // the test cycle evp intake path
-	client           *http.Client      // the HTTP client used in the POST
-	headers          map[string]string // the transport headers
+	config           *config           // Configuration for the tracer.
+	testCycleUrlPath string            // URL path for the test cycle endpoint.
+	client           *http.Client      // HTTP client used to send the requests.
+	headers          map[string]string // HTTP headers to be included in the requests.
 }
 
+// newCiVisibilityTransport creates and initializes a new civisibilityTransport
+// based on the provided tracer configuration. It sets up the appropriate headers
+// and determines the URL path based on whether agentless mode is enabled.
+//
+// Parameters:
+//
+//	config - The tracer configuration.
+//
+// Returns:
+//
+//	A pointer to an initialized civisibilityTransport instance.
 func newCiVisibilityTransport(config *config) *civisibilityTransport {
-	// initialize the default EncoderPool with Encoder headers
+	// Initialize the default headers with encoder metadata.
 	defaultHeaders := map[string]string{
 		"Datadog-Meta-Lang":             "go",
 		"Datadog-Meta-Lang-Version":     strings.TrimPrefix(runtime.Version(), "go"),
@@ -50,23 +65,22 @@ func newCiVisibilityTransport(config *config) *civisibilityTransport {
 		defaultHeaders["Datadog-Entity-ID"] = eid
 	}
 
-	// Check if the agentless environment variable was set.
+	// Determine if agentless mode is enabled through an environment variable.
 	agentlessEnabled := internal.BoolEnv(constants.CiVisibilityAgentlessEnabledEnvironmentVariable, false)
 
 	testCycleUrl := ""
 	if agentlessEnabled {
+		// Agentless mode is enabled.
 		defaultHeaders["dd-api-key"] = os.Getenv(constants.ApiKeyEnvironmentVariable)
 
-		// If agentless is enabled let's check if the custom agentless url environment variable is set
+		// Check for a custom agentless URL.
 		agentlessUrl := ""
 		if v := os.Getenv(constants.CiVisibilityAgentlessUrlEnvironmentVariable); v != "" {
 			agentlessUrl = v
 		}
 
 		if agentlessUrl == "" {
-			// Normal agentless mode
-
-			// Extract the DD_SITE
+			// Use the standard agentless URL format.
 			site := "datadoghq.com"
 			if v := os.Getenv("DD_SITE"); v != "" {
 				site = v
@@ -74,11 +88,11 @@ func newCiVisibilityTransport(config *config) *civisibilityTransport {
 
 			testCycleUrl = fmt.Sprintf("https://%s.%s/%s", TestCycleSubdomain, site, TestCyclePath)
 		} else {
-			// Agentless mode with custom agentless url
+			// Use the custom agentless URL.
 			testCycleUrl = fmt.Sprintf("%s/%s", agentlessUrl, TestCyclePath)
 		}
 	} else {
-		// Agent mode with EvP proxy
+		// Use agent mode with the EVP proxy.
 		defaultHeaders["X-Datadog-EVP-Subdomain"] = TestCycleSubdomain
 		testCycleUrl = fmt.Sprintf("%s/%s/%s", config.agentURL.String(), EvpProxyPath, TestCyclePath)
 	}
@@ -91,6 +105,16 @@ func newCiVisibilityTransport(config *config) *civisibilityTransport {
 	}
 }
 
+// send sends the CI Visibility payload to the Datadog endpoint.
+// It prepares the payload, creates the HTTP request, and handles the response.
+//
+// Parameters:
+//
+//	p - The payload to be sent.
+//
+// Returns:
+//
+//	An io.ReadCloser for reading the response body, and an error if the operation fails.
 func (t *civisibilityTransport) send(p *payload) (body io.ReadCloser, err error) {
 	ciVisibilityPayload := &civisibilitypayload{p}
 	buffer, bufferErr := ciVisibilityPayload.GetBuffer(t.config)
@@ -125,11 +149,25 @@ func (t *civisibilityTransport) send(p *payload) (body io.ReadCloser, err error)
 	return response.Body, nil
 }
 
+// sendStats is a no-op for CI Visibility transport as it does not support sending stats payloads.
+//
+// Parameters:
+//
+//	payload - The stats payload to be sent.
+//
+// Returns:
+//
+//	An error indicating that stats are not supported.
 func (t *civisibilityTransport) sendStats(*statsPayload) error {
-	// Stats are not supported by CI Visibility agentless / evp proxy
+	// Stats are not supported by CI Visibility agentless / EVP proxy.
 	return nil
 }
 
+// endpoint returns the URL path of the test cycle endpoint.
+//
+// Returns:
+//
+//	The URL path as a string.
 func (t *civisibilityTransport) endpoint() string {
 	return t.testCycleUrlPath
 }

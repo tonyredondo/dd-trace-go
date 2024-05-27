@@ -20,9 +20,11 @@ type (
 	// This type is only used in tests.
 	ciTestCyclePayloadList []*ciTestCyclePayload
 
+	// ciVisibilityEvents is a slice of ciVisibilityEvent pointers.
 	ciVisibilityEvents []*ciVisibilityEvent
 )
 
+// Ensure that ciVisibilityEvent and related types implement necessary interfaces.
 var (
 	_ ddtrace.Span   = (*ciVisibilityEvent)(nil)
 	_ msgp.Encodable = (*ciVisibilityEvent)(nil)
@@ -35,47 +37,87 @@ var (
 	_ msgp.Decodable = (*ciTestCyclePayloadList)(nil)
 )
 
+// ciTestCyclePayload represents the payload for CI test cycles, including version, metadata, and events.
 type ciTestCyclePayload struct {
-	Version  int32                        `msg:"version"`  // version of the payload
-	Metadata map[string]map[string]string `msg:"metadata"` // global meta of the payload
-	Events   msgp.Raw                     `msg:"events"`   // global meta of the payload
+	Version  int32                        `msg:"version"`  // Version of the payload format
+	Metadata map[string]map[string]string `msg:"metadata"` // Metadata associated with the payload
+	Events   msgp.Raw                     `msg:"events"`   // Encoded events data
 }
 
+// ciVisibilityEvent represents a CI visibility event, including type, version, and content.
+// It implements the ddtrace.Span interface.
 type ciVisibilityEvent struct {
-	Type    string   `msg:"type"`    // type of civisibility event
-	Version int32    `msg:"version"` // version of the type of the event
-	Content tslvSpan `msg:"content"` // event content
+	Type    string   `msg:"type"`    // Type of the CI visibility event
+	Version int32    `msg:"version"` // Version of the event type
+	Content tslvSpan `msg:"content"` // Content of the event
 
-	span *span `msg:"-"`
+	span *span `msg:"-"` // Associated span (not marshaled)
 }
 
+// SetTag sets a tag on the event's span and updates the content metadata and metrics.
+//
+// Parameters:
+//
+//	key - The tag key.
+//	value - The tag value.
 func (e *ciVisibilityEvent) SetTag(key string, value interface{}) {
 	e.span.SetTag(key, value)
 	e.Content.Meta = e.span.Meta
 	e.Content.Metrics = e.span.Metrics
 }
 
+// SetOperationName sets the operation name of the event's span and updates the content name.
+//
+// Parameters:
+//
+//	operationName - The new operation name.
 func (e *ciVisibilityEvent) SetOperationName(operationName string) {
 	e.span.SetOperationName(operationName)
 	e.Content.Name = e.span.Name
 }
 
+// BaggageItem retrieves the baggage item associated with the given key from the event's span.
+//
+// Parameters:
+//
+//	key - The baggage item key.
+//
+// Returns:
+//
+//	The baggage item value.
 func (e *ciVisibilityEvent) BaggageItem(key string) string {
 	return e.span.BaggageItem(key)
 }
 
+// SetBaggageItem sets a baggage item on the event's span.
+//
+// Parameters:
+//
+//	key - The baggage item key.
+//	val - The baggage item value.
 func (e *ciVisibilityEvent) SetBaggageItem(key, val string) {
 	e.span.SetBaggageItem(key, val)
 }
 
+// Finish completes the event's span with optional finish options.
+//
+// Parameters:
+//
+//	opts - Optional finish options.
 func (e *ciVisibilityEvent) Finish(opts ...ddtrace.FinishOption) {
 	e.span.Finish(opts...)
 }
 
+// Context returns the span context of the event's span.
+//
+// Returns:
+//
+//	The span context.
 func (e *ciVisibilityEvent) Context() ddtrace.SpanContext {
 	return e.span.Context()
 }
 
+// tslvSpan represents the detailed information of a span for CI visibility.
 type tslvSpan struct {
 	SessionId     uint64             `msg:"test_session_id,omitempty"`    // identifier of this session
 	ModuleId      uint64             `msg:"test_module_id,omitempty"`     // identifier of this module
@@ -95,6 +137,15 @@ type tslvSpan struct {
 	Metrics       map[string]float64 `msg:"metrics,omitempty"`            // arbitrary map of numeric metrics
 }
 
+// getCiVisibilityEvent creates a ciVisibilityEvent from a span based on the span type.
+//
+// Parameters:
+//
+//	span - The span to convert into a ciVisibilityEvent.
+//
+// Returns:
+//
+//	A pointer to the created ciVisibilityEvent.
 func getCiVisibilityEvent(span *span) *ciVisibilityEvent {
 	switch span.Type {
 	case constants.SpanTypeTest:
@@ -110,6 +161,15 @@ func getCiVisibilityEvent(span *span) *ciVisibilityEvent {
 	}
 }
 
+// createTestEventFromSpan creates a ciVisibilityEvent of type Test from a span.
+//
+// Parameters:
+//
+//	span - The span to convert.
+//
+// Returns:
+//
+//	A pointer to the created ciVisibilityEvent.
 func createTestEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
 	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
@@ -126,6 +186,15 @@ func createTestEventFromSpan(span *span) *ciVisibilityEvent {
 	}
 }
 
+// createTestSuiteEventFromSpan creates a ciVisibilityEvent of type TestSuite from a span.
+//
+// Parameters:
+//
+//	span - The span to convert.
+//
+// Returns:
+//
+//	A pointer to the created ciVisibilityEvent.
 func createTestSuiteEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
 	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
@@ -139,6 +208,15 @@ func createTestSuiteEventFromSpan(span *span) *ciVisibilityEvent {
 	}
 }
 
+// createTestModuleEventFromSpan creates a ciVisibilityEvent of type TestModule from a span.
+//
+// Parameters:
+//
+//	span - The span to convert.
+//
+// Returns:
+//
+//	A pointer to the created ciVisibilityEvent.
 func createTestModuleEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
 	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
@@ -151,6 +229,15 @@ func createTestModuleEventFromSpan(span *span) *ciVisibilityEvent {
 	}
 }
 
+// createTestSessionEventFromSpan creates a ciVisibilityEvent of type TestSession from a span.
+//
+// Parameters:
+//
+//	span - The span to convert.
+//
+// Returns:
+//
+//	A pointer to the created ciVisibilityEvent.
 func createTestSessionEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
 	tSpan.SessionId = getAndRemoveMetaToUInt64(span, constants.TestSessionIdTagName)
@@ -162,6 +249,15 @@ func createTestSessionEventFromSpan(span *span) *ciVisibilityEvent {
 	}
 }
 
+// createSpanEventFromSpan creates a ciVisibilityEvent of type Span from a span.
+//
+// Parameters:
+//
+//	span - The span to convert.
+//
+// Returns:
+//
+//	A pointer to the created ciVisibilityEvent.
 func createSpanEventFromSpan(span *span) *ciVisibilityEvent {
 	tSpan := createTslvSpan(span)
 	tSpan.SpanID = span.SpanID
@@ -174,6 +270,15 @@ func createSpanEventFromSpan(span *span) *ciVisibilityEvent {
 	}
 }
 
+// createTslvSpan creates a tslvSpan from a span.
+//
+// Parameters:
+//
+//	span - The span to convert.
+//
+// Returns:
+//
+//	The created tslvSpan.
 func createTslvSpan(span *span) tslvSpan {
 	return tslvSpan{
 		Name:     span.Name,
@@ -189,6 +294,16 @@ func createTslvSpan(span *span) tslvSpan {
 	}
 }
 
+// getAndRemoveMeta retrieves a metadata value from a span and removes it from the span's metadata and metrics.
+//
+// Parameters:
+//
+//	span - The span to modify.
+//	key - The metadata key to retrieve and remove.
+//
+// Returns:
+//
+//	The retrieved metadata value.
 func getAndRemoveMeta(span *span, key string) string {
 	span.Lock()
 	defer span.Unlock()
@@ -205,6 +320,16 @@ func getAndRemoveMeta(span *span, key string) string {
 	return ""
 }
 
+// getAndRemoveMetaToUInt64 retrieves a metadata value from a span, removes it, and converts it to a uint64.
+//
+// Parameters:
+//
+//	span - The span to modify.
+//	key - The metadata key to retrieve and convert.
+//
+// Returns:
+//
+//	The retrieved and converted metadata value as a uint64.
 func getAndRemoveMetaToUInt64(span *span, key string) uint64 {
 	strValue := getAndRemoveMeta(span, key)
 	i, err := strconv.ParseUint(strValue, 10, 64)

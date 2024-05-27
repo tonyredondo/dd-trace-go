@@ -12,32 +12,38 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
+// Constants defining the payload size limits for agentless mode.
 const (
-	// agentlessPayloadMaxLimit is the maximum payload size allowed and should indicate the
+	// agentlessPayloadMaxLimit is the maximum payload size allowed, indicating the
 	// maximum size of the package that the intake can receive.
-	agentlessPayloadMaxLimit = 5 * 1024 * 1024 // 9.5 MB
+	agentlessPayloadMaxLimit = 5 * 1024 * 1024 // 5 MB
 
 	// agentlessPayloadSizeLimit specifies the maximum allowed size of the payload before
-	// it will trigger a flush to the transport.
+	// it triggers a flush to the transport.
 	agentlessPayloadSizeLimit = agentlessPayloadMaxLimit / 2
 )
 
+// Ensure that ciVisibilityTraceWriter implements the traceWriter interface.
 var _ traceWriter = (*ciVisibilityTraceWriter)(nil)
 
+// ciVisibilityTraceWriter is responsible for buffering and sending CI visibility trace data
+// to the Datadog backend. It manages the payload size and flushes the data when necessary.
 type ciVisibilityTraceWriter struct {
-	// config holds the tracer configuration
-	config *config
-
-	// payload encodes and buffers traces in msgpack format
-	payload *civisibilitypayload
-
-	// climit limits the number of concurrent outgoing connections
-	climit chan struct{}
-
-	// wg waits for all uploads to finish
-	wg sync.WaitGroup
+	config  *config              // Configuration for the tracer.
+	payload *civisibilitypayload // Encodes and buffers traces in msgpack format.
+	climit  chan struct{}        // Limits the number of concurrent outgoing connections.
+	wg      sync.WaitGroup       // Waits for all uploads to finish.
 }
 
+// newCiVisibilityTraceWriter creates a new instance of ciVisibilityTraceWriter.
+//
+// Parameters:
+//
+//	c - The tracer configuration.
+//
+// Returns:
+//
+//	A pointer to an initialized ciVisibilityTraceWriter.
 func newCiVisibilityTraceWriter(c *config) *ciVisibilityTraceWriter {
 	return &ciVisibilityTraceWriter{
 		config:  c,
@@ -46,6 +52,12 @@ func newCiVisibilityTraceWriter(c *config) *ciVisibilityTraceWriter {
 	}
 }
 
+// add adds a new trace to the payload. If the payload size exceeds the limit,
+// it triggers a flush to send the data.
+//
+// Parameters:
+//
+//	trace - A slice of spans representing the trace to be added.
 func (w *ciVisibilityTraceWriter) add(trace []*span) {
 	for _, s := range trace {
 		cvEvent := getCiVisibilityEvent(s)
@@ -58,11 +70,14 @@ func (w *ciVisibilityTraceWriter) add(trace []*span) {
 	}
 }
 
+// stop stops the trace writer, ensuring all data is flushed and all uploads are completed.
 func (w *ciVisibilityTraceWriter) stop() {
 	w.flush()
 	w.wg.Wait()
 }
 
+// flush sends the current payload to the transport. It ensures that the payload is reset
+// and the resources are freed after the flush operation is completed.
 func (w *ciVisibilityTraceWriter) flush() {
 	if w.payload.itemCount() == 0 {
 		return

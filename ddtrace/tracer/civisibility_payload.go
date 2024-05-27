@@ -14,11 +14,22 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/version"
 )
 
+// civisibilitypayload represents a payload specifically designed for CI Visibility events.
+// It embeds the generic payload structure and adds methods to handle CI Visibility specific data.
 type civisibilitypayload struct {
 	*payload
 }
 
-// push pushes a new item into the stream.
+// push adds a new CI Visibility event to the payload buffer.
+// It grows the buffer to accommodate the new event, encodes the event in MessagePack format, and updates the event count.
+//
+// Parameters:
+//
+//	event - The CI Visibility event to be added to the payload.
+//
+// Returns:
+//
+//	An error if encoding the event fails.
 func (p *civisibilitypayload) push(event *ciVisibilityEvent) error {
 	p.buf.Grow(event.Msgsize())
 	if err := msgp.Encode(&p.buf, event); err != nil {
@@ -29,41 +40,57 @@ func (p *civisibilitypayload) push(event *ciVisibilityEvent) error {
 	return nil
 }
 
+// newCiVisibilityPayload creates a new instance of civisibilitypayload.
+//
+// Returns:
+//
+//	A pointer to a newly initialized civisibilitypayload instance.
 func newCiVisibilityPayload() *civisibilitypayload {
 	return &civisibilitypayload{newPayload()}
 }
 
-// GetBuffer gets the complete body of the CiVisibility payload
+// GetBuffer retrieves the complete body of the CI Visibility payload, including metadata.
+// It reads the current payload buffer, adds metadata, and encodes the entire payload in MessagePack format.
+//
+// Parameters:
+//
+//	config - A pointer to the config structure containing environment settings.
+//
+// Returns:
+//
+//	A pointer to a bytes.Buffer containing the encoded CI Visibility payload.
+//	An error if reading from the buffer or encoding the payload fails.
 func (p *civisibilitypayload) GetBuffer(config *config) (*bytes.Buffer, error) {
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(p.payload)
-	if err != nil {
+	// Create a buffer to read the current payload
+	payloadBuf := new(bytes.Buffer)
+	if _, err := payloadBuf.ReadFrom(p.payload); err != nil {
 		return nil, err
 	}
 
+	// Create the metadata map
 	allMetadata := map[string]string{
 		"language":        "go",
 		"runtime-id":      globalconfig.RuntimeID(),
 		"library_version": version.Tag,
 	}
-
 	if config.env != "" {
 		allMetadata["env"] = config.env
 	}
 
+	// Create the visibility payload
 	visibilityPayload := ciTestCyclePayload{
 		Version: 1,
 		Metadata: map[string]map[string]string{
 			"*": allMetadata,
 		},
-		Events: buf.Bytes(),
+		Events: payloadBuf.Bytes(),
 	}
 
-	buf = new(bytes.Buffer)
-	err = msgp.Encode(buf, &visibilityPayload)
-	if err != nil {
+	// Create a new buffer to encode the visibility payload in MessagePack format
+	encodedBuf := new(bytes.Buffer)
+	if err := msgp.Encode(encodedBuf, &visibilityPayload); err != nil {
 		return nil, err
 	}
 
-	return buf, nil
+	return encodedBuf, nil
 }
