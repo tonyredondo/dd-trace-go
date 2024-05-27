@@ -9,6 +9,7 @@ package gotesting
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"regexp"
@@ -16,23 +17,32 @@ import (
 	"strconv"
 	"testing"
 	_ "unsafe"
-
-	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
+// runtime_coverage_processCoverTestDirInternal is an internal runtime function used to process coverage data.
+// This declaration uses go:linkname to access the unexported function from the runtime package.
+//
 //go:linkname runtime_coverage_processCoverTestDirInternal runtime/coverage.processCoverTestDirInternal
 func runtime_coverage_processCoverTestDirInternal(dir string, cfile string, cm string, cpkg string, w io.Writer) error
 
-// force the package to be included in the binary so the linker (in go:linkname) can find the symbols
+// Ensure the coverage package is included in the binary so the linker can find the symbols.
 var _ = coverage.ClearCounters
 
-// getCoverage uses the internal `runtime/coverage.processCoverTestDirInternal` to process the coverage counters
-// then parse the result and return the percentage value in float64
-func getCoverage() float64 {
+// getCoverage processes the coverage counters using the internal runtime function
+// and parses the result to return the coverage percentage.
+//
+// It reads the GOCOVERDIR environment variable to locate the directory containing coverage data,
+// invokes the runtime_coverage_processCoverTestDirInternal function to process the coverage data,
+// and extracts the coverage percentage from the output.
+//
+// Returns:
+//
+//	A float64 representing the coverage percentage.
+//	An error if any part of the process fails or if the GOCOVERDIR environment variable is not set.
+func getCoverage() (float64, error) {
 	goCoverDir := os.Getenv("GOCOVERDIR")
 	if goCoverDir == "" {
-		logger.Warn("GOCOVERDIR environment variable not set, coverage couldn't get extracted.")
-		return testing.Coverage()
+		return 0, errors.New("GOCOVERDIR environment variable not set")
 	}
 
 	buffer := new(bytes.Buffer)
@@ -43,11 +53,9 @@ func getCoverage() float64 {
 		if len(results) == 2 {
 			percentage, err := strconv.ParseFloat(results[1], 64)
 			if err == nil {
-				return percentage
+				return percentage, nil
 			}
 		}
-	} else {
-		logger.Warn("Error trying to get coverage stats: %s", err)
 	}
-	return testing.Coverage()
+	return 0, err
 }

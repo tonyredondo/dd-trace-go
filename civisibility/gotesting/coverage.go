@@ -9,7 +9,15 @@ package gotesting
 
 import "testing"
 
-// getCoverage prior to go1.20 the old coverage format is the default, so we can use the normal testing.Coverage call
-func getCoverage() float64 {
-	return testing.Coverage()
+// getCoverage retrieves the code coverage percentage using the standard testing package.
+// This function is used for Go versions prior to 1.20, where the old coverage format is the default.
+// It calls testing.Coverage, which returns the current code coverage as a fraction (between 0 and 1).
+// This fraction is then converted to a percentage (between 0 and 100).
+//
+// Returns:
+//
+//	A float64 representing the coverage percentage (e.g., 75 for 75% coverage).
+//	An error, which is always nil in this implementation since testing.Coverage does not return an error.
+func getCoverage() (float64, error) {
+	return testing.Coverage() * 100, nil
 }

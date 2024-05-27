@@ -7,6 +7,7 @@ package gotesting
 
 import (
 	"fmt"
+	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 	"os"
 	"reflect"
 	"runtime"
@@ -88,9 +89,13 @@ func (ddm *M) Run() int {
 
 	// Check for code coverage if enabled.
 	if testing.CoverMode() != "" {
-		coveragePercentage := getCoverage()
-		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
-		session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)
+		coveragePercentage, err := getCoverage()
+		if err == nil {
+			session.SetTag(constants.CodeCoverageEnabledTagName, "true")
+			session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)
+		} else {
+			logger.Warn("Error getting coverage percentage: %s", err)
+		}
 	}
 
 	// Close the session and return the exit code.
