@@ -22,14 +22,18 @@ import (
 )
 
 var (
-	ciVisibilityTests      = map[*testing.T]civisibility.DdTest{}
+	// ciVisibilityTests holds a map of *testing.T to civisibility.DdTest for tracking tests.
+	ciVisibilityTests = map[*testing.T]civisibility.DdTest{}
+
+	// ciVisibilityTestsMutex is a read-write mutex for synchronizing access to ciVisibilityTests.
 	ciVisibilityTestsMutex sync.RWMutex
 )
 
+// T is a type alias for testing.T to provide additional methods for CI visibility.
 type T testing.T
 
-// GetTest is a helper to return *gotesting.T from *testing.T
-// internally is just a (*gotesting.T)(t) cast
+// GetTest is a helper to return *gotesting.T from *testing.T.
+// Internally, it is just a (*gotesting.T)(t) cast.
 func GetTest(t *testing.T) *T {
 	return (*T)(t)
 }
@@ -41,16 +45,20 @@ func GetTest(t *testing.T) *T {
 // Run may be called simultaneously from multiple goroutines, but all such calls
 // must return before the outer test function for t returns.
 func (ddt *T) Run(name string, f func(*testing.T)) bool {
+	// Reflect the function to obtain its pointer.
 	fReflect := reflect.Indirect(reflect.ValueOf(f))
 	moduleName, suiteName := utils.GetModuleAndSuiteName(fReflect.Pointer())
 	originalFunc := runtime.FuncForPC(fReflect.Pointer())
-	// let's increment the test count in the module
+
+	// Increment the test count in the module.
 	atomic.AddInt32(modulesCounters[moduleName], 1)
-	// let's increment the test count in the suite
+
+	// Increment the test count in the suite.
 	atomic.AddInt32(suitesCounters[suiteName], 1)
 
 	t := (*testing.T)(ddt)
 	return t.Run(name, func(t *testing.T) {
+		// Create or retrieve the module, suite, and test for CI visibility.
 		module := session.GetOrCreateModuleWithFramework(moduleName, testFramework, runtime.Version())
 		suite := module.GetOrCreateSuite(suiteName)
 		test := suite.CreateTest(t.Name())
@@ -58,14 +66,14 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 		setCiVisibilityTest(t, test)
 		defer func() {
 			if r := recover(); r != nil {
-				// Panic handling
+				// Handle panic and set error information.
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
 				test.Close(civisibility.ResultStatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
 				panic(r)
 			} else {
-				// Normal finalization
+				// Normal finalization: determine the test result based on its state.
 				if t.Failed() {
 					test.SetTag(ext.Error, true)
 					suite.SetTag(ext.Error, true)
@@ -80,13 +88,14 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 			}
 		}()
 
+		// Execute the original test function.
 		f(t)
 	})
 }
 
-// Context returns the CI Visibility context of the Test span
+// Context returns the CI Visibility context of the Test span.
 // This may be used to create test's children spans useful for
-// integration tests
+// integration tests.
 func (ddt *T) Context() context.Context {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -110,11 +119,9 @@ func (ddt *T) Fail() {
 
 // FailNow marks the function as having failed and stops its execution
 // by calling runtime.Goexit (which then runs all deferred calls in the
-// current goroutine).
-// Execution will continue at the next test or benchmark.
-// FailNow must be called from the goroutine running the
-// test or benchmark function, not from other goroutines
-// created during the test. Calling FailNow does not stop
+// current goroutine). Execution will continue at the next test or benchmark.
+// FailNow must be called from the goroutine running the test or benchmark function,
+// not from other goroutines created during the test. Calling FailNow does not stop
 // those other goroutines.
 func (ddt *T) FailNow() {
 	t := (*testing.T)(ddt)
@@ -193,13 +200,10 @@ func (ddt *T) Skipf(format string, args ...any) {
 }
 
 // SkipNow marks the test as having been skipped and stops its execution
-// by calling runtime.Goexit.
-// If a test fails (see Error, Errorf, Fail) and is then skipped,
-// it is still considered to have failed.
-// Execution will continue at the next test or benchmark. See also FailNow.
-// SkipNow must be called from the goroutine running the test, not from
-// other goroutines created during the test. Calling SkipNow does not stop
-// those other goroutines.
+// by calling runtime.Goexit. If a test fails (see Error, Errorf, Fail) and is then skipped,
+// it is still considered to have failed. Execution will continue at the next test or benchmark.
+// SkipNow must be called from the goroutine running the test, not from other goroutines created
+// during the test. Calling SkipNow does not stop those other goroutines.
 func (ddt *T) SkipNow() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
@@ -220,7 +224,6 @@ func (ddt *T) Parallel() {
 
 // Deadline reports the time at which the test binary will have
 // exceeded the timeout specified by the -timeout flag.
-//
 // The ok result is false if the -timeout flag indicates “no timeout” (0).
 func (ddt *T) Deadline() (deadline time.Time, ok bool) {
 	return (*testing.T)(ddt).Deadline()
@@ -228,14 +231,13 @@ func (ddt *T) Deadline() (deadline time.Time, ok bool) {
 
 // Setenv calls os.Setenv(key, value) and uses Cleanup to
 // restore the environment variable to its original value
-// after the test.
-//
-// Because Setenv affects the whole process, it cannot be used
-// in parallel tests or tests with parallel ancestors.
+// after the test. Because Setenv affects the whole process,
+// it cannot be used in parallel tests or tests with parallel ancestors.
 func (ddt *T) Setenv(key, value string) {
 	(*testing.T)(ddt).Setenv(key, value)
 }
 
+// getCiVisibilityTest retrieves the CI visibility test associated with a given *testing.T.
 func getCiVisibilityTest(t *testing.T) civisibility.DdTest {
 	ciVisibilityTestsMutex.RLock()
 	defer ciVisibilityTestsMutex.RUnlock()
@@ -247,6 +249,7 @@ func getCiVisibilityTest(t *testing.T) civisibility.DdTest {
 	return nil
 }
 
+// setCiVisibilityTest associates a CI visibility test with a given *testing.T.
 func setCiVisibilityTest(t *testing.T, ciTest civisibility.DdTest) {
 	ciVisibilityTestsMutex.Lock()
 	defer ciVisibilityTestsMutex.Unlock()
