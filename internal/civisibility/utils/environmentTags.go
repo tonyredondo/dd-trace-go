@@ -17,14 +17,22 @@ import (
 )
 
 var (
-	// tags contains information detected from CI/CD environment variables.
+	// ciTags holds the CI/CD environment variable information.
 	ciTags      map[string]string
 	ciTagsMutex sync.Mutex
 
+	// codeowners holds the parsed CODEOWNERS file data.
 	codeowners      *CodeOwners
 	codeownersMutex sync.Mutex
 )
 
+// GetCiTags retrieves and caches the CI/CD tags from environment variables.
+// It initializes the ciTags map if it is not already initialized.
+// This function is thread-safe due to the use of a mutex.
+//
+// Returns:
+//
+//	A map[string]string containing the CI/CD tags.
 func GetCiTags() map[string]string {
 	ciTagsMutex.Lock()
 	defer ciTagsMutex.Unlock()
@@ -36,6 +44,16 @@ func GetCiTags() map[string]string {
 	return ciTags
 }
 
+// GetRelativePathFromCiTagsSourceRoot calculates the relative path from the CI workspace root to the specified path.
+// If the CI workspace root is not available in the tags, it returns the original path.
+//
+// Parameters:
+//
+//	path - The absolute or relative file path for which the relative path should be calculated.
+//
+// Returns:
+//
+//	The relative path from the CI workspace root to the specified path, or the original path if an error occurs.
 func GetRelativePathFromCiTagsSourceRoot(path string) string {
 	tags := GetCiTags()
 	if v, ok := tags[constants.CIWorkspacePath]; ok {
@@ -48,6 +66,13 @@ func GetRelativePathFromCiTagsSourceRoot(path string) string {
 	return path
 }
 
+// GetCodeOwners retrieves and caches the CODEOWNERS data.
+// It looks for the CODEOWNERS file in various standard locations within the CI workspace.
+// This function is thread-safe due to the use of a mutex.
+//
+// Returns:
+//
+//	A pointer to a CodeOwners struct containing the parsed CODEOWNERS data, or nil if not found.
 func GetCodeOwners() *CodeOwners {
 	codeownersMutex.Lock()
 	defer codeownersMutex.Unlock()
@@ -77,6 +102,12 @@ func GetCodeOwners() *CodeOwners {
 	return nil
 }
 
+// createCiTagsMap creates a map of CI/CD tags by extracting information from environment variables and the local Git repository.
+// It also adds OS and runtime information to the tags.
+//
+// Returns:
+//
+//	A map[string]string containing the extracted CI/CD tags.
 func createCiTagsMap() map[string]string {
 	localTags := getProviderTags()
 	localTags[constants.OSPlatform] = runtime.GOOS
@@ -87,7 +118,7 @@ func createCiTagsMap() map[string]string {
 
 	gitData, _ := getLocalGitData()
 
-	// Guess Git metadata from a local Git repository otherwise.
+	// Populate Git metadata from the local Git repository if not already present in localTags
 	if _, ok := localTags[constants.CIWorkspacePath]; !ok {
 		localTags[constants.CIWorkspacePath] = gitData.SourceRoot
 	}
@@ -101,6 +132,7 @@ func createCiTagsMap() map[string]string {
 		localTags[constants.GitBranch] = gitData.Branch
 	}
 
+	// If the commit SHA matches, populate additional Git metadata
 	if localTags[constants.GitCommitSHA] == gitData.CommitSha {
 		if _, ok := localTags[constants.GitCommitAuthorDate]; !ok {
 			localTags[constants.GitCommitAuthorDate] = gitData.AuthorDate.String()

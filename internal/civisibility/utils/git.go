@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+// localGitData holds various pieces of information about the local Git repository,
+// including the source root, repository URL, branch, commit SHA, author and committer details, and commit message.
 type localGitData struct {
 	SourceRoot     string
 	RepositoryUrl  string
@@ -28,44 +30,54 @@ type localGitData struct {
 	CommitMessage  string
 }
 
+// regexpSensitiveInfo is a regular expression used to match and filter out sensitive information from URLs.
 var regexpSensitiveInfo = regexp.MustCompile("(https?://|ssh?://)[^/]*@")
 
-// getLocalGitData get the git data from the HEAD in Git repository
+// getLocalGitData retrieves information about the local Git repository from the current HEAD.
+// It gathers details such as the repository URL, current branch, latest commit SHA, author and committer details, and commit message.
+//
+// Returns:
+//
+//	A localGitData struct populated with the retrieved Git data.
+//	An error if any Git command fails or the retrieved data is incomplete.
 func getLocalGitData() (localGitData, error) {
 	gitData := localGitData{}
 
-	// Extract git working folder
+	// Extract the absolute path to the Git directory
 	out, err := exec.Command("git", "rev-parse", "--absolute-git-dir").Output()
 	if err == nil {
 		gitData.SourceRoot = strings.ReplaceAll(strings.Trim(string(out), "\n"), ".git", "")
 	}
 
-	// Extract repository data
+	// Extract the repository URL
 	out, err = exec.Command("git", "ls-remote", "--get-url").Output()
 	if err == nil {
 		gitData.RepositoryUrl = filterSensitiveInfo(strings.Trim(string(out), "\n"))
 	}
 
-	// Extract the branch name
+	// Extract the current branch name
 	out, err = exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err == nil {
 		gitData.Branch = strings.Trim(string(out), "\n")
 	}
 
-	// Get remaining data from the git log command: git log -1 --pretty='%H","%aI","%an","%ae","%cI","%cn","%ce","%B'
+	// Get commit details from the latest commit using git log (git log -1 --pretty='%H","%aI","%an","%ae","%cI","%cn","%ce","%B')
 	out, err = exec.Command("git", "log", "-1", "--pretty=%H\",\"%at\",\"%an\",\"%ae\",\"%ct\",\"%cn\",\"%ce\",\"%B").Output()
 	if err != nil {
 		return gitData, err
 	}
 
+	// Split the output into individual components
 	outArray := strings.Split(string(out), "\",\"")
 	if len(outArray) < 8 {
 		return gitData, errors.New("git log failed")
 	}
 
+	// Parse author and committer dates from Unix timestamp
 	authorUnixDate, _ := strconv.ParseInt(outArray[1], 10, 64)
 	committerUnixDate, _ := strconv.ParseInt(outArray[4], 10, 64)
 
+	// Populate the localGitData struct with the parsed information
 	gitData.CommitSha = outArray[0]
 	gitData.AuthorDate = time.Unix(authorUnixDate, 0)
 	gitData.AuthorName = outArray[2]
@@ -77,6 +89,16 @@ func getLocalGitData() (localGitData, error) {
 	return gitData, nil
 }
 
+// filterSensitiveInfo removes sensitive information from a given URL using a regular expression.
+// It replaces the user credentials part of the URL (if present) with an empty string.
+//
+// Parameters:
+//
+//	url - The URL string from which sensitive information should be filtered out.
+//
+// Returns:
+//
+//	The sanitized URL string with sensitive information removed.
 func filterSensitiveInfo(url string) string {
 	return string(regexpSensitiveInfo.ReplaceAll([]byte(url), []byte("$1"))[:])
 }

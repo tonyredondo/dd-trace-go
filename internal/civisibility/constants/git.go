@@ -7,35 +7,46 @@ package constants
 
 const (
 	// GitBranch indicates the current git branch.
+	// This constant is used to tag traces with the branch name being used in the CI/CD process.
 	GitBranch = "git.branch"
 
-	// GitCommitAuthorDate indicates git commit author date related to the build.
+	// GitCommitAuthorDate indicates the git commit author date related to the build.
+	// This constant is used to tag traces with the date when the author created the commit.
 	GitCommitAuthorDate = "git.commit.author.date"
 
-	// GitCommitAuthorEmail indicates git commit author email related to the build.
+	// GitCommitAuthorEmail indicates the git commit author email related to the build.
+	// This constant is used to tag traces with the email of the author who created the commit.
 	GitCommitAuthorEmail = "git.commit.author.email"
 
-	// GitCommitAuthorName indicates git commit author name related to the build.
+	// GitCommitAuthorName indicates the git commit author name related to the build.
+	// This constant is used to tag traces with the name of the author who created the commit.
 	GitCommitAuthorName = "git.commit.author.name"
 
-	// GitCommitCommitterDate indicates git commit committer date related to the build.
+	// GitCommitCommitterDate indicates the git commit committer date related to the build.
+	// This constant is used to tag traces with the date when the committer applied the commit.
 	GitCommitCommitterDate = "git.commit.committer.date"
 
-	// GitCommitCommitterEmail indicates git commit committer email related to the build.
+	// GitCommitCommitterEmail indicates the git commit committer email related to the build.
+	// This constant is used to tag traces with the email of the committer who applied the commit.
 	GitCommitCommitterEmail = "git.commit.committer.email"
 
-	// GitCommitCommitterName indicates git commit committer name related to the build.
+	// GitCommitCommitterName indicates the git commit committer name related to the build.
+	// This constant is used to tag traces with the name of the committer who applied the commit.
 	GitCommitCommitterName = "git.commit.committer.name"
 
-	// GitCommitMessage indicates git commit message related to the build.
+	// GitCommitMessage indicates the git commit message related to the build.
+	// This constant is used to tag traces with the message associated with the commit.
 	GitCommitMessage = "git.commit.message"
 
-	// GitCommitSHA indicates git commit SHA1 hash related to the build.
+	// GitCommitSHA indicates the git commit SHA1 hash related to the build.
+	// This constant is used to tag traces with the SHA1 hash of the commit.
 	GitCommitSHA = "git.commit.sha"
 
-	// GitRepositoryURL indicates git repository URL related to the build.
+	// GitRepositoryURL indicates the git repository URL related to the build.
+	// This constant is used to tag traces with the URL of the repository where the commit is stored.
 	GitRepositoryURL = "git.repository_url"
 
 	// GitTag indicates the current git tag.
+	// This constant is used to tag traces with the tag name associated with the current commit.
 	GitTag = "git.tag"
 )

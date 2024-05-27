@@ -10,11 +10,22 @@ import (
 	"strings"
 )
 
+// ExpandPath expands a file path that starts with '~' to the user's home directory.
+// If the path does not start with '~', it is returned unchanged.
+//
+// Parameters:
+//
+//	path - The file path to be expanded.
+//
+// Returns:
+//
+//	The expanded file path, with '~' replaced by the user's home directory, if applicable.
 func ExpandPath(path string) string {
 	if len(path) == 0 || path[0] != '~' {
 		return path
 	}
 
+	// If the second character is not '/' or '\', return the path unchanged
 	if len(path) > 1 && path[1] != '/' && path[1] != '\\' {
 		return path
 	}
@@ -27,14 +38,24 @@ func ExpandPath(path string) string {
 	return path
 }
 
+// getHomeDir returns the home directory of the current user.
+// The method used to determine the home directory depends on the operating system.
+//
+// On Windows, it prefers the HOME environment variable, then USERPROFILE, and finally combines HOMEDRIVE and HOMEPATH.
+// On Unix-like systems, it prefers the HOME environment variable, and falls back to various shell commands
+// to determine the home directory if necessary.
+//
+// Returns:
+//
+//	The home directory of the current user.
 func getHomeDir() string {
 	if runtime.GOOS == "windows" {
 		if home := os.Getenv("HOME"); home != "" {
-			// First prefer the HOME environmental variable
+			// First prefer the HOME environment variable
 			return home
 		}
 		if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
-			// Prefer standard environment variable USERPROFILE
+			// Prefer the USERPROFILE environment variable
 			return userProfile
 		}
 
@@ -45,17 +66,18 @@ func getHomeDir() string {
 
 	homeEnv := "HOME"
 	if runtime.GOOS == "plan9" {
-		// On plan9, env vars are lowercase.
+		// On plan9, environment variables are lowercase.
 		homeEnv = "home"
 	}
 
 	if home := os.Getenv(homeEnv); home != "" {
-		// First prefer the HOME environmental variable
+		// Prefer the HOME environment variable
 		return home
 	}
 
 	var stdout bytes.Buffer
 	if runtime.GOOS == "darwin" {
+		// On macOS, use dscl to read the NFSHomeDirectory
 		cmd := exec.Command("sh", "-c", `dscl -q . -read /Users/"$(whoami)" NFSHomeDirectory | sed 's/^[^ ]*: //'`)
 		cmd.Stdout = &stdout
 		if err := cmd.Run(); err == nil {
@@ -65,11 +87,12 @@ func getHomeDir() string {
 			}
 		}
 	} else {
+		// On other Unix-like systems, use getent to read the passwd entry for the current user
 		cmd := exec.Command("getent", "passwd", strconv.Itoa(os.Getuid()))
 		cmd.Stdout = &stdout
 		if err := cmd.Run(); err == nil {
 			if passwd := strings.TrimSpace(stdout.String()); passwd != "" {
-				// username:password:uid:gid:gecos:home:shell
+				// The passwd entry is in the format: username:password:uid:gid:gecos:home:shell
 				passwdParts := strings.SplitN(passwd, ":", 7)
 				if len(passwdParts) > 5 {
 					return passwdParts[5]
@@ -78,7 +101,7 @@ func getHomeDir() string {
 		}
 	}
 
-	// If all else fails, try the shell
+	// If all else fails, use the shell to determine the home directory
 	stdout.Reset()
 	cmd := exec.Command("sh", "-c", "cd && pwd")
 	cmd.Stdout = &stdout

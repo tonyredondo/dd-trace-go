@@ -6,12 +6,16 @@
 package constants
 
 const (
-	// OSPlatform indicates the operating system family (eg: linux).
+	// OSPlatform indicates the operating system family (e.g., linux, windows, darwin).
+	// This constant is used to tag traces with the operating system family on which the tests are running.
 	OSPlatform = "os.platform"
 
-	// OSVersion indicates version of the operating system.
+	// OSVersion indicates the version of the operating system.
+	// This constant is used to tag traces with the specific version of the operating system on which the tests are running.
 	OSVersion = "os.version"
 
-	// OSArchitecture indicates the architecture this sdk is built for (could be 32-bit on a 64-bit system)
+	// OSArchitecture indicates the architecture this SDK is built for (e.g., amd64, 386, arm).
+	// This constant is used to tag traces with the architecture of the operating system for which the tests are built.
+	// Note: This could be 32-bit on a 64-bit system.
 	OSArchitecture = "os.architecture"
 )

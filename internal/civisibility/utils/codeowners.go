@@ -15,16 +15,22 @@ import (
 	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
+// CodeOwners represents a structured data type that holds sections of code owners.
+// Each section maps to a slice of entries, where each entry includes a pattern and a list of owners.
 type CodeOwners struct {
 	Sections map[string][]Entry
 }
 
+// Entry represents a single entry in a CODEOWNERS file.
+// It includes the pattern for matching files, the list of owners, and the section to which it belongs.
 type Entry struct {
 	Pattern string
 	Owners  []string
 	Section string
 }
 
+// NewCodeOwners creates a new instance of CodeOwners by parsing a CODEOWNERS file located at the given filePath.
+// It returns an error if the file cannot be read or parsed properly.
 func NewCodeOwners(filePath string) (*CodeOwners, error) {
 	if filePath == "" {
 		return nil, fmt.Errorf("filePath cannot be empty")
@@ -37,7 +43,7 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 	defer func() {
 		err = file.Close()
 		if err != nil && !errors.Is(os.ErrClosed, err) {
-			logger.Warn("Error closing codeowners file: ", err.Error())
+			logger.Warn("Error closing codeowners file: %s", err.Error())
 		}
 	}()
 
@@ -52,6 +58,7 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 			continue
 		}
 
+		// Identify section headers, which are lines enclosed in square brackets
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			currentSectionName = line[1 : len(line)-1]
 			foundSectionName := findSectionIgnoreCase(sectionsList, currentSectionName)
@@ -71,8 +78,7 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 				continue
 			}
 
-			// Teams and users handles starts with @
-			// Emails contains @
+			// Identify owners by their prefixes (either @ for usernames or containing @ for emails)
 			if term[0] == '@' || strings.Contains(term, "@") {
 				ownersList = append(ownersList, term)
 				pos := strings.Index(finalLine, term)
@@ -94,7 +100,7 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 		return nil, err
 	}
 
-	// Reverse the entries list
+	// Reverse the entries list to maintain the order of appearance in the file
 	for i, j := 0, len(entriesList)-1; i < j; i, j = i+1, j-1 {
 		entriesList[i], entriesList[j] = entriesList[j], entriesList[i]
 	}
@@ -108,6 +114,8 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 	return &CodeOwners{Sections: sections}, nil
 }
 
+// findSectionIgnoreCase searches for a section name in a case-insensitive manner.
+// It returns the section name if found, otherwise returns an empty string.
 func findSectionIgnoreCase(sections []string, section string) string {
 	sectionLower := strings.ToLower(section)
 	for _, s := range sections {
@@ -118,6 +126,8 @@ func findSectionIgnoreCase(sections []string, section string) string {
 	return ""
 }
 
+// Match finds the first entry in the CodeOwners that matches the given value.
+// It returns a pointer to the matched entry, or nil if no match is found.
 func (co *CodeOwners) Match(value string) *Entry {
 	var matchedEntries []Entry
 
@@ -202,6 +212,8 @@ func (co *CodeOwners) Match(value string) *Entry {
 	}
 }
 
+// GetOwnersString returns a formatted string of the owners list in an Entry.
+// It returns an empty string if there are no owners.
 func (e Entry) GetOwnersString() string {
 	if e.Owners == nil || len(e.Owners) == 0 {
 		return ""

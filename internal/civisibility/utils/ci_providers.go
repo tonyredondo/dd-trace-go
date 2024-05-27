@@ -16,8 +16,10 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 )
 
+// providerType defines a function type that returns a map of string key-value pairs.
 type providerType = func() map[string]string
 
+// providers maps environment variable names to their corresponding CI provider extraction functions.
 var providers = map[string]providerType{
 	"APPVEYOR":            extractAppveyor,
 	"TF_BUILD":            extractAzurePipelines,
@@ -35,6 +37,7 @@ var providers = map[string]providerType{
 	"CODEBUILD_INITIATOR": extractAwsCodePipeline,
 }
 
+// removeEmpty removes entries with empty values from the provided map.
 func removeEmpty(tags map[string]string) {
 	for tag, value := range tags {
 		if value == "" {
@@ -43,6 +46,7 @@ func removeEmpty(tags map[string]string) {
 	}
 }
 
+// getEnvVarsJson returns a JSON representation of the specified environment variables.
 func getEnvVarsJson(envVars ...string) ([]byte, error) {
 	envVarsMap := make(map[string]string)
 	for _, envVar := range envVars {
@@ -54,7 +58,7 @@ func getEnvVarsJson(envVars ...string) ([]byte, error) {
 	return json.Marshal(envVarsMap)
 }
 
-// GetProviderTags extracts CI information from environment variables.
+// getProviderTags extracts CI information from environment variables.
 func getProviderTags() map[string]string {
 	tags := map[string]string{}
 	for key, provider := range providers {
@@ -81,6 +85,7 @@ func getProviderTags() map[string]string {
 	return tags
 }
 
+// normalizeTags normalizes specific tags to remove prefixes and sensitive information.
 func normalizeTags(tags map[string]string) {
 	if tag, ok := tags[constants.GitBranch]; ok && tag != "" {
 		if strings.Contains(tag, "refs/tags") || strings.Contains(tag, "origin/tags") || strings.Contains(tag, "refs/heads/tags") {
@@ -105,6 +110,7 @@ func normalizeTags(tags map[string]string) {
 	}
 }
 
+// replaceWithUserSpecificTags replaces certain tags with user-specific environment variable values.
 func replaceWithUserSpecificTags(tags map[string]string) {
 
 	replace := func(tagName, envName string) {
@@ -124,6 +130,7 @@ func replaceWithUserSpecificTags(tags map[string]string) {
 	replace(constants.GitCommitCommitterDate, "DD_GIT_COMMIT_COMMITTER_DATE")
 }
 
+// getEnvironmentVariableIfIsNotEmpty returns the environment variable value if it is not empty, otherwise returns the default value.
 func getEnvironmentVariableIfIsNotEmpty(key string, defaultValue string) string {
 	if value, ok := os.LookupEnv(key); ok && value != "" {
 		return value
@@ -132,6 +139,7 @@ func getEnvironmentVariableIfIsNotEmpty(key string, defaultValue string) string 
 	}
 }
 
+// normalizeRef normalizes a Git reference name by removing common prefixes.
 func normalizeRef(name string) string {
 	empty := []byte("")
 	refs := regexp.MustCompile("^refs/(heads/)?")
@@ -140,6 +148,7 @@ func normalizeRef(name string) string {
 	return string(tags.ReplaceAll(origin.ReplaceAll(refs.ReplaceAll([]byte(name), empty), empty), empty)[:])
 }
 
+// firstEnv returns the value of the first non-empty environment variable from the provided list.
 func firstEnv(keys ...string) string {
 	for _, key := range keys {
 		if value, ok := os.LookupEnv(key); ok {
@@ -151,6 +160,7 @@ func firstEnv(keys ...string) string {
 	return ""
 }
 
+// extractAppveyor extracts CI information specific to Appveyor.
 func extractAppveyor() map[string]string {
 	tags := map[string]string{}
 	url := fmt.Sprintf("https://ci.appveyor.com/project/%s/builds/%s", os.Getenv("APPVEYOR_REPO_NAME"), os.Getenv("APPVEYOR_BUILD_ID"))
@@ -177,6 +187,7 @@ func extractAppveyor() map[string]string {
 	return tags
 }
 
+// extractAzurePipelines extracts CI information specific to Azure Pipelines.
 func extractAzurePipelines() map[string]string {
 	tags := map[string]string{}
 	baseURL := fmt.Sprintf("%s%s/_build/results?buildId=%s", os.Getenv("SYSTEM_TEAMFOUNDATIONSERVERURI"), os.Getenv("SYSTEM_TEAMPROJECTID"), os.Getenv("BUILD_BUILDID"))
@@ -219,6 +230,7 @@ func extractAzurePipelines() map[string]string {
 	return tags
 }
 
+// extractBitrise extracts CI information specific to Bitrise.
 func extractBitrise() map[string]string {
 	tags := map[string]string{}
 	tags[constants.CIProviderName] = "bitrise"
@@ -235,6 +247,7 @@ func extractBitrise() map[string]string {
 	return tags
 }
 
+// extractBitbucket extracts CI information specific to Bitbucket.
 func extractBitbucket() map[string]string {
 	tags := map[string]string{}
 	url := fmt.Sprintf("https://bitbucket.org/%s/addon/pipelines/home#!/results/%s", os.Getenv("BITBUCKET_REPO_FULL_NAME"), os.Getenv("BITBUCKET_BUILD_NUMBER"))
@@ -252,6 +265,7 @@ func extractBitbucket() map[string]string {
 	return tags
 }
 
+// extractBuddy extracts CI information specific to Buddy.
 func extractBuddy() map[string]string {
 	tags := map[string]string{}
 	tags[constants.CIProviderName] = "buddy"
@@ -269,6 +283,7 @@ func extractBuddy() map[string]string {
 	return tags
 }
 
+// extractBuildkite extracts CI information specific to Buildkite.
 func extractBuildkite() map[string]string {
 	tags := map[string]string{}
 	tags[constants.GitBranch] = os.Getenv("BUILDKITE_BRANCH")
@@ -316,6 +331,7 @@ func extractBuildkite() map[string]string {
 	return tags
 }
 
+// extractCircleCI extracts CI information specific to CircleCI.
 func extractCircleCI() map[string]string {
 	tags := map[string]string{}
 	tags[constants.CIProviderName] = "circleci"
@@ -339,6 +355,7 @@ func extractCircleCI() map[string]string {
 	return tags
 }
 
+// extractGithubActions extracts CI information specific to GitHub Actions.
 func extractGithubActions() map[string]string {
 	tags := map[string]string{}
 	branchOrTag := firstEnv("GITHUB_HEAD_REF", "GITHUB_REF")
@@ -387,6 +404,7 @@ func extractGithubActions() map[string]string {
 	return tags
 }
 
+// extractGitlab extracts CI information specific to GitLab.
 func extractGitlab() map[string]string {
 	tags := map[string]string{}
 	url := os.Getenv("CI_PIPELINE_URL")
@@ -424,6 +442,7 @@ func extractGitlab() map[string]string {
 	return tags
 }
 
+// extractJenkins extracts CI information specific to Jenkins.
 func extractJenkins() map[string]string {
 	tags := map[string]string{}
 	tags[constants.CIProviderName] = "jenkins"
@@ -472,6 +491,7 @@ func extractJenkins() map[string]string {
 	return tags
 }
 
+// extractTeamcity extracts CI information specific to TeamCity.
 func extractTeamcity() map[string]string {
 	tags := map[string]string{}
 	tags[constants.CIProviderName] = "teamcity"
@@ -480,6 +500,7 @@ func extractTeamcity() map[string]string {
 	return tags
 }
 
+// extractCodefresh extracts CI information specific to Codefresh.
 func extractCodefresh() map[string]string {
 	tags := map[string]string{}
 	tags[constants.CIProviderName] = "codefresh"
@@ -506,6 +527,7 @@ func extractCodefresh() map[string]string {
 	return tags
 }
 
+// extractTravis extracts CI information specific to Travis CI.
 func extractTravis() map[string]string {
 	tags := map[string]string{}
 	prSlug := os.Getenv("TRAVIS_PULL_REQUEST_SLUG")
@@ -528,6 +550,7 @@ func extractTravis() map[string]string {
 	return tags
 }
 
+// extractAwsCodePipeline extracts CI information specific to AWS CodePipeline.
 func extractAwsCodePipeline() map[string]string {
 	tags := map[string]string{}
 

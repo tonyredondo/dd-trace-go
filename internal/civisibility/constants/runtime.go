@@ -6,9 +6,11 @@
 package constants
 
 const (
-	// RuntimeName indicates name of the runtime Compiler.
+	// RuntimeName indicates the name of the runtime compiler.
+	// This constant is used to tag traces with the name of the runtime compiler being used (e.g., Go, JVM).
 	RuntimeName = "runtime.name"
 
-	// RuntimeVersion indicates the Go tree's version string
+	// RuntimeVersion indicates the version of the runtime compiler.
+	// This constant is used to tag traces with the specific version of the runtime compiler being used.
 	RuntimeVersion = "runtime.version"
 )
