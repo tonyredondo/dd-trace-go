@@ -7,6 +7,7 @@ package utils
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -35,7 +36,9 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 	}
 	defer func() {
 		err = file.Close()
-		logger.Warn("Error closing codeowners file: ", err)
+		if err != nil && !errors.Is(os.ErrClosed, err) {
+			logger.Warn("Error closing codeowners file: ", err.Error())
+		}
 	}()
 
 	var entriesList []Entry

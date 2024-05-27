@@ -36,6 +36,14 @@ var (
 
 func EnsureCiVisibilityInitialization() {
 	ciVisibilityInitializationOnce.Do(func() {
+
+		// Because calling this method indicates we are in CI Visibility mode
+		// Let's set the environment variable in case is not configured
+		// to affect the tracer configuration
+		if v := os.Getenv(constants.CiVisibilityEnabledEnvironmnetVariable); v == "" {
+			_ = os.Setenv(constants.CiVisibilityEnabledEnvironmnetVariable, "1")
+		}
+
 		// Preload all CI and Git and CodeOwners tags.
 		ciTags := utils.GetCiTags()
 		_ = utils.GetCodeOwners()
