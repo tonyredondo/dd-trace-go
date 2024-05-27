@@ -22,63 +22,83 @@ import (
 )
 
 const (
+	// testFramework represents the name of the testing framework.
 	testFramework = "golang.org/pkg/testing"
 )
 
 var (
+	// session represents the CI visibility test session.
 	session civisibility.DdTestSession
 
-	testInfos       []*testingTInfo
-	benchmarkInfos  []*testingBInfo
+	// testInfos holds information about the instrumented tests.
+	testInfos []*testingTInfo
+
+	// benchmarkInfos holds information about the instrumented benchmarks.
+	benchmarkInfos []*testingBInfo
+
+	// modulesCounters keeps track of the number of tests per module.
 	modulesCounters = map[string]*int32{}
-	suitesCounters  = map[string]*int32{}
+
+	// suitesCounters keeps track of the number of tests per suite.
+	suitesCounters = map[string]*int32{}
 )
 
 type (
+	// commonInfo holds common information about tests and benchmarks.
 	commonInfo struct {
 		moduleName string
 		suiteName  string
 		testName   string
 	}
 
+	// testingTInfo holds information specific to tests.
 	testingTInfo struct {
 		commonInfo
 		originalFunc func(*testing.T)
 	}
 
+	// testingBInfo holds information specific to benchmarks.
 	testingBInfo struct {
 		commonInfo
 		originalFunc func(b *testing.B)
 	}
 
+	// M is a wrapper around testing.M to provide instrumentation.
 	M testing.M
 )
 
+// Run initializes CI Visibility, instruments tests and benchmarks, and runs them.
 func (ddm *M) Run() int {
 	internal.EnsureCiVisibilityInitialization()
 	defer internal.ExitCiVisibility()
 
+	// Create a new test session for CI visibility.
 	session = civisibility.CreateTestSession()
 
 	m := (*testing.M)(ddm)
 
-	// Access to the inner Test array and instrument them
+	// Instrument the internal tests for CI visibility.
 	ddm.instrumentInternalTests(getInternalTestArray(m))
 
-	// Access to the inner Benchmark array and instrument them
+	// Instrument the internal benchmarks for CI visibility.
 	ddm.instrumentInternalBenchmarks(getInternalBenchmarkArray(m))
 
+	// Run the tests and benchmarks.
 	var exitCode = m.Run()
-	coveragePercentage := getCoverage()
+
+	// Check for code coverage if enabled.
 	if testing.CoverMode() != "" {
+		coveragePercentage := getCoverage()
 		session.SetTag(constants.CodeCoverageEnabledTagName, "true")
 		session.SetTag(constants.CodeCoveragePercentageOfTotalLines, coveragePercentage)
 	}
 
+	// Close the session and return the exit code.
 	session.Close(exitCode)
 	return exitCode
 }
 
+// instrumentInternalTests instruments the internal tests for CI visibility.
 func (ddm *M) instrumentInternalTests(internalTests *[]testing.InternalTest) {
 	if internalTests != nil {
 		// Extract info from internal tests
@@ -94,6 +114,7 @@ func (ddm *M) instrumentInternalTests(internalTests *[]testing.InternalTest) {
 				},
 			}
 
+			// Initialize module and suite counters if not already present.
 			if _, ok := modulesCounters[moduleName]; !ok {
 				var v int32 = 0
 				modulesCounters[moduleName] = &v
@@ -121,9 +142,11 @@ func (ddm *M) instrumentInternalTests(internalTests *[]testing.InternalTest) {
 	}
 }
 
+// executeInternalTest wraps the original test function to include CI visibility instrumentation.
 func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 	originalFunc := runtime.FuncForPC(reflect.Indirect(reflect.ValueOf(testInfo.originalFunc)).Pointer())
 	return func(t *testing.T) {
+		// Create or retrieve the module, suite, and test for CI visibility.
 		module := session.GetOrCreateModuleWithFramework(testInfo.moduleName, testFramework, runtime.Version())
 		suite := module.GetOrCreateSuite(testInfo.suiteName)
 		test := suite.CreateTest(testInfo.testName)
@@ -131,7 +154,7 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 		setCiVisibilityTest(t, test)
 		defer func() {
 			if r := recover(); r != nil {
-				// Panic handling
+				// Handle panic and set error information.
 				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
 				suite.SetTag(ext.Error, true)
 				module.SetTag(ext.Error, true)
@@ -140,7 +163,7 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 				internal.ExitCiVisibility()
 				panic(r)
 			} else {
-				// Normal finalization
+				// Normal finalization: determine the test result based on its state.
 				if t.Failed() {
 					test.SetTag(ext.Error, true)
 					suite.SetTag(ext.Error, true)
@@ -156,10 +179,12 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 			}
 		}()
 
+		// Execute the original test function.
 		testInfo.originalFunc(t)
 	}
 }
 
+// instrumentInternalBenchmarks instruments the internal benchmarks for CI visibility.
 func (ddm *M) instrumentInternalBenchmarks(internalBenchmarks *[]testing.InternalBenchmark) {
 	if internalBenchmarks != nil {
 		// Extract info from internal benchmarks
@@ -175,6 +200,7 @@ func (ddm *M) instrumentInternalBenchmarks(internalBenchmarks *[]testing.Interna
 				},
 			}
 
+			// Initialize module and suite counters if not already present.
 			if _, ok := modulesCounters[moduleName]; !ok {
 				var v int32 = 0
 				modulesCounters[moduleName] = &v
@@ -203,6 +229,7 @@ func (ddm *M) instrumentInternalBenchmarks(internalBenchmarks *[]testing.Interna
 	}
 }
 
+// executeInternalBenchmark wraps the original benchmark function to include CI visibility instrumentation.
 func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testing.B) {
 	return func(b *testing.B) {
 
@@ -216,15 +243,16 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 		test := suite.CreateTestWithStartTime(benchmarkInfo.testName, startTime)
 		test.SetTestFunc(originalFunc)
 
-		// run original benchmark
+		// Run the original benchmark function.
 		var iPfOfB *benchmarkPrivateFields
 		var recoverFunc *func(r any)
 		b.Run(b.Name(), func(b *testing.B) {
-			// stop the timer to do the initialization and replacements
+			// Stop the timer to perform initialization and replacements.
 			b.StopTimer()
 
 			defer func() {
 				if r := recover(); r != nil {
+					// Handle panic if it occurs during benchmark execution.
 					if recoverFunc != nil {
 						fn := *recoverFunc
 						fn(r)
@@ -233,23 +261,25 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 				}
 			}()
 
-			// enable allocations reporting
+			// Enable allocation reporting.
 			b.ReportAllocs()
-			// first time we get the private fields of the inner testing.B
+			// Retrieve the private fields of the inner testing.B.
 			iPfOfB = getBenchmarkPrivateFields(b)
-			// replace this function with the original one (this should be executed only once - the first iteration[b.run1])
+			// Replace the benchmark function with the original one (this must be executed only once - the first iteration[b.run1]).
 			*iPfOfB.benchFunc = benchmarkInfo.originalFunc
-			// set b to the civisibility test
+			// Set the CI visibility benchmark.
 			setCiVisibilityBenchmark(b, test)
 
-			// enable the timer again
+			// Restart the timer and execute the original benchmark function.
+			b.ResetTimer()
 			b.StartTimer()
-			// warmup the original func
 			benchmarkInfo.originalFunc(b)
 		})
 
 		endTime := time.Now()
 		results := iPfOfB.result
+
+		// Set benchmark data for CI visibility.
 		test.SetBenchmarkData("duration", map[string]any{
 			"run":  results.N,
 			"mean": results.NsPerOp(),
@@ -275,8 +305,8 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 			test.SetBenchmarkData("extra", mapConverted)
 		}
 
+		// Define a function to handle panic during benchmark finalization.
 		panicFunc := func(r any) {
-			// Panic handling
 			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
@@ -286,7 +316,7 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 		}
 		recoverFunc = &panicFunc
 
-		// Normal finalization
+		// Normal finalization: determine the benchmark result based on its state.
 		if iPfOfB.B.Failed() {
 			test.SetTag(ext.Error, true)
 			suite.SetTag(ext.Error, true)
@@ -302,14 +332,17 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 	}
 }
 
+// RunM runs the tests and benchmarks using CI visibility.
 func RunM(m *testing.M) int {
 	return (*M)(m).Run()
 }
 
+// RunAndExit runs the tests and benchmarks and exits with the resulting code.
 func RunAndExit(m *testing.M) {
 	os.Exit(RunM(m))
 }
 
+// checkModuleAndSuite checks and closes the modules and suites if all tests are executed.
 func checkModuleAndSuite(module civisibility.DdTestModule, suite civisibility.DdTestSuite) {
 	// If all tests in a suite has been executed we can close the suite
 	if atomic.AddInt32(suitesCounters[suite.Name()], -1) <= 0 {
