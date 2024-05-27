@@ -7,19 +7,21 @@ package gotesting
 
 import (
 	"fmt"
-	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 	"os"
 	"reflect"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+	_ "unsafe"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	internal "gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
+	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
 const (
@@ -82,7 +84,14 @@ func (ddm *M) Run() int {
 	ddm.instrumentInternalTests(getInternalTestArray(m))
 
 	// Instrument the internal benchmarks for CI visibility.
-	ddm.instrumentInternalBenchmarks(getInternalBenchmarkArray(m))
+	fmt.Println(os.Args)
+	for _, v := range os.Args {
+		// check if benchmarking is enabled to instrument
+		if strings.Contains(v, "-bench") || strings.Contains(v, "test.bench") {
+			ddm.instrumentInternalBenchmarks(getInternalBenchmarkArray(m))
+			break
+		}
+	}
 
 	// Run the tests and benchmarks.
 	var exitCode = m.Run()
@@ -124,12 +133,14 @@ func (ddm *M) instrumentInternalTests(internalTests *[]testing.InternalTest) {
 				var v int32 = 0
 				modulesCounters[moduleName] = &v
 			}
+			// Increment the test count in the module.
 			atomic.AddInt32(modulesCounters[moduleName], 1)
 
 			if _, ok := suitesCounters[suiteName]; !ok {
 				var v int32 = 0
 				suitesCounters[suiteName] = &v
 			}
+			// Increment the test count in the suite.
 			atomic.AddInt32(suitesCounters[suiteName], 1)
 
 			testInfos[idx] = testInfo
@@ -210,12 +221,14 @@ func (ddm *M) instrumentInternalBenchmarks(internalBenchmarks *[]testing.Interna
 				var v int32 = 0
 				modulesCounters[moduleName] = &v
 			}
+			// Increment the test count in the module.
 			atomic.AddInt32(modulesCounters[moduleName], 1)
 
 			if _, ok := suitesCounters[suiteName]; !ok {
 				var v int32 = 0
 				suitesCounters[suiteName] = &v
 			}
+			// Increment the test count in the suite.
 			atomic.AddInt32(suitesCounters[suiteName], 1)
 
 			benchmarkInfos[idx] = benchmarkInfo
