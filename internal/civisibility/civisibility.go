@@ -36,10 +36,8 @@ var (
 func EnsureCiVisibilityInitialization() {
 	ciVisibilityInitializationOnce.Do(func() {
 
-		// Since calling this method indicates we are in CI Visibility mode, set the environment variable if not already set.
-		if v := os.Getenv(constants.CiVisibilityEnabledEnvironmnetVariable); v == "" {
-			_ = os.Setenv(constants.CiVisibilityEnabledEnvironmnetVariable, "1")
-		}
+		// Since calling this method indicates we are in CI Visibility mode, set the environment variable.
+		_ = os.Setenv(constants.CiVisibilityEnabledEnvironmnetVariable, "1")
 
 		// Preload all CI, Git, and CodeOwners tags.
 		ciTags := utils.GetCiTags()

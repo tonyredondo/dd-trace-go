@@ -303,16 +303,13 @@ const partialFlushMinSpansDefault = 1000
 // newConfig renders the tracer configuration based on defaults, environment variables
 // and passed user opts.
 func newConfig(opts ...StartOption) *config {
+	// Check if CI Visibility mode is enabled
+	if internal.BoolEnv(constants.CiVisibilityEnabledEnvironmnetVariable, false) {
+		return newCiVisibilityConfig(opts...)
+	}
 	c := new(config)
 	c.sampler = NewAllSampler()
-	// Check if Ci Visibility mode has been enabled
-	c.ciVisibilityEnabled = internal.BoolEnv(constants.CiVisibilityEnabledEnvironmnetVariable, false)
-
-	if c.ciVisibilityEnabled {
-		c.httpClientTimeout = time.Second * 45 // 45 seconds
-	} else {
-		c.httpClientTimeout = time.Second * 10 // 10 seconds
-	}
+	c.httpClientTimeout = time.Second * 10 // 10 seconds
 
 	if internal.BoolEnv("DD_TRACE_ANALYTICS_ENABLED", false) {
 		globalconfig.SetAnalyticsRate(1.0)
@@ -362,10 +359,6 @@ func newConfig(opts ...StartOption) *config {
 		c.logToStdout = true
 	}
 	c.logStartup = internal.BoolEnv("DD_TRACE_STARTUP_LOGS", true)
-	if c.ciVisibilityEnabled {
-		c.logStartup = false // if we are in CI Visibility mode we don't log the startup to stdout to avoid polluting the output
-	}
-
 	c.runtimeMetrics = internal.BoolEnv("DD_RUNTIME_METRICS_ENABLED", false)
 	c.debug = internal.BoolEnv("DD_TRACE_DEBUG", false)
 	c.enabled = newDynamicConfig("tracing_enabled", internal.BoolEnv("DD_TRACE_ENABLED", true), func(b bool) bool { return true }, equal[bool])
@@ -419,11 +412,10 @@ func newConfig(opts ...StartOption) *config {
 	for _, fn := range opts {
 		fn(c)
 	}
-
 	if c.agentURL == nil {
 		c.agentURL = resolveAgentAddr()
-		if agentUrl := internal.AgentURLFromEnv(); agentUrl != nil {
-			c.agentURL = agentUrl
+		if url := internal.AgentURLFromEnv(); url != nil {
+			c.agentURL = url
 		}
 	}
 	if c.agentURL.Scheme == "unix" {
@@ -466,9 +458,7 @@ func newConfig(opts ...StartOption) *config {
 			c.serviceName = filepath.Base(os.Args[0])
 		}
 	}
-	if c.ciVisibilityEnabled {
-		c.transport = newCiVisibilityTransport(c)
-	} else if c.transport == nil {
+	if c.transport == nil {
 		c.transport = newHTTPTransport(c.agentURL.String(), c.httpClient)
 	}
 	if c.propagator == nil {
