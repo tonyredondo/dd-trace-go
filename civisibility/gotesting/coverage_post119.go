@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"testing"
 	_ "unsafe"
+
+	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
 //go:linkname runtime_coverage_processCoverTestDirInternal runtime/coverage.processCoverTestDirInternal
@@ -27,8 +29,14 @@ var _ = coverage.ClearCounters
 // getCoverage uses the internal `runtime/coverage.processCoverTestDirInternal` to process the coverage counters
 // then parse the result and return the percentage value in float64
 func getCoverage() float64 {
+	goCoverDir := os.Getenv("GOCOVERDIR")
+	if goCoverDir == "" {
+		logger.Warn("GOCOVERDIR environment variable not set, coverage couldn't get extracted.")
+		return testing.Coverage()
+	}
+
 	buffer := new(bytes.Buffer)
-	err := runtime_coverage_processCoverTestDirInternal(os.Getenv("GOCOVERDIR"), "", testing.CoverMode(), "", buffer)
+	err := runtime_coverage_processCoverTestDirInternal(goCoverDir, "", testing.CoverMode(), "", buffer)
 	if err == nil {
 		re := regexp.MustCompile(`(?si)coverage: (.*)%`)
 		results := re.FindStringSubmatch(buffer.String())
@@ -38,6 +46,8 @@ func getCoverage() float64 {
 				return percentage
 			}
 		}
+	} else {
+		logger.Warn("Error trying to get coverage stats: %s", err)
 	}
-	return 0
+	return testing.Coverage()
 }
