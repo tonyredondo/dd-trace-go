@@ -22,8 +22,10 @@ import (
 
 // Test Session
 
+// Ensures that tslvTestSession implements the DdTestSession interface.
 var _ DdTestSession = (*tslvTestSession)(nil)
 
+// tslvTestSession implements the DdTestSession interface and represents a session for a set of tests.
 type tslvTestSession struct {
 	ciVisibilityCommon
 	sessionId        uint64
@@ -34,6 +36,7 @@ type tslvTestSession struct {
 	modules map[string]DdTestModule
 }
 
+// CreateTestSession initializes a new test session. It automatically determines the command and working directory.
 func CreateTestSession() DdTestSession {
 	var cmd string
 	if len(os.Args) == 1 {
@@ -41,7 +44,8 @@ func CreateTestSession() DdTestSession {
 	} else {
 		cmd = fmt.Sprintf("%s %s", filepath.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	}
-	// let's filter out the random gocoverdir when coverage is enabled (to make the command more "stable")
+
+	// Filter out the random gocoverdir when coverage is enabled to make the command more stable.
 	cmd = regexp.MustCompile(`(?si)-test.gocoverdir=(.*)\s`).ReplaceAllString(cmd, "")
 	wd, err := os.Getwd()
 	if err == nil {
@@ -50,8 +54,9 @@ func CreateTestSession() DdTestSession {
 	return CreateTestSessionWith(cmd, wd, "", time.Now())
 }
 
+// CreateTestSessionWith initializes a new test session with specified command, working directory, framework, and start time.
 func CreateTestSessionWith(command string, workingDirectory string, framework string, startTime time.Time) DdTestSession {
-	// Let's ensure we have the ci visibility properly configured
+	// Ensure CI visibility is properly configured.
 	internal.EnsureCiVisibilityInitialization()
 
 	operationName := "test_session"
@@ -91,17 +96,25 @@ func CreateTestSessionWith(command string, workingDirectory string, framework st
 		},
 	}
 
-	// We need to ensure to close everything before ci visibility is exiting.
-	// In ci visibility mode we try to never lose data
-	internal.PushCiVisibilityCloseAction(func() { s.Close(ResultStatusFail) })
+	// Ensure to close everything before CI visibility exits. In CI visibility mode, we try to never lose data.
+	internal.PushCiVisibilityCloseAction(func() { s.Close(1) })
 
 	return s
 }
 
-func (t *tslvTestSession) Command() string          { return t.command }
-func (t *tslvTestSession) Framework() string        { return t.framework }
+// Command returns the command used to run the test session.
+func (t *tslvTestSession) Command() string { return t.command }
+
+// Framework returns the testing framework used in the test session.
+func (t *tslvTestSession) Framework() string { return t.framework }
+
+// WorkingDirectory returns the working directory of the test session.
 func (t *tslvTestSession) WorkingDirectory() string { return t.workingDirectory }
-func (t *tslvTestSession) Close(exitCode int)       { t.CloseWithFinishTime(exitCode, time.Now()) }
+
+// Close closes the test session with the given exit code and sets the finish time to the current time.
+func (t *tslvTestSession) Close(exitCode int) { t.CloseWithFinishTime(exitCode, time.Now()) }
+
+// CloseWithFinishTime closes the test session with the given exit code and finish time.
 func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -127,12 +140,18 @@ func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time
 
 	tracer.Flush()
 }
+
+// GetOrCreateModule returns an existing module or creates a new one with the given name.
 func (t *tslvTestSession) GetOrCreateModule(name string) DdTestModule {
 	return t.GetOrCreateModuleWithFramework(name, "", "")
 }
+
+// GetOrCreateModuleWithFramework returns an existing module or creates a new one with the given name, framework, and framework version.
 func (t *tslvTestSession) GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) DdTestModule {
 	return t.GetOrCreateModuleWithFrameworkAndStartTime(name, framework, frameworkVersion, time.Now())
 }
+
+// GetOrCreateModuleWithFrameworkAndStartTime returns an existing module or creates a new one with the given name, framework, framework version, and start time.
 func (t *tslvTestSession) GetOrCreateModuleWithFrameworkAndStartTime(name string, framework string, frameworkVersion string, startTime time.Time) DdTestModule {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

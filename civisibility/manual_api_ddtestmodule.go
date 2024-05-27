@@ -18,8 +18,10 @@ import (
 
 // Test Module
 
+// Ensures that tslvTestModule implements the DdTestModule interface.
 var _ DdTestModule = (*tslvTestModule)(nil)
 
+// tslvTestModule implements the DdTestModule interface and represents a module within a test session.
 type tslvTestModule struct {
 	ciVisibilityCommon
 	session   *tslvTestSession
@@ -30,8 +32,9 @@ type tslvTestModule struct {
 	suites map[string]DdTestSuite
 }
 
+// createTestModule initializes a new test module within a given session.
 func createTestModule(session *tslvTestSession, name string, framework string, frameworkVersion string, startTime time.Time) DdTestModule {
-	// Let's ensure we have the ci visibility properly configured
+	// Ensure CI visibility is properly configured.
 	internal.EnsureCiVisibilityInitialization()
 
 	operationName := "test_module"
@@ -46,7 +49,7 @@ func createTestModule(session *tslvTestSession, name string, framework string, f
 		sessionTags = session.tags
 	}
 
-	// module tags should include also the session tags so the backend can calculate the session fingerprint from the module
+	// Module tags should include session tags so the backend can calculate the session fingerprint from the module.
 	moduleTags := append(sessionTags, []tracer.StartSpanOption{
 		tracer.Tag(constants.TestType, constants.TestTypeTest),
 		tracer.Tag(constants.TestModule, name),
@@ -81,17 +84,25 @@ func createTestModule(session *tslvTestSession, name string, framework string, f
 		},
 	}
 
-	// We need to ensure to close everything before ci visibility is exiting.
-	// In ci visibility mode we try to never lose data
+	// Ensure to close everything before CI visibility exits. In CI visibility mode, we try to never lose data.
 	internal.PushCiVisibilityCloseAction(func() { module.Close() })
 
 	return module
 }
 
-func (t *tslvTestModule) Name() string           { return t.name }
-func (t *tslvTestModule) Framework() string      { return t.framework }
+// Name returns the name of the test module.
+func (t *tslvTestModule) Name() string { return t.name }
+
+// Framework returns the testing framework used by the test module.
+func (t *tslvTestModule) Framework() string { return t.framework }
+
+// Session returns the test session to which the test module belongs.
 func (t *tslvTestModule) Session() DdTestSession { return t.session }
-func (t *tslvTestModule) Close()                 { t.CloseWithFinishTime(time.Now()) }
+
+// Close closes the test module and sets the finish time to the current time.
+func (t *tslvTestModule) Close() { t.CloseWithFinishTime(time.Now()) }
+
+// CloseWithFinishTime closes the test module with the given finish time.
 func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -107,9 +118,13 @@ func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
 	t.span.Finish(tracer.FinishTime(finishTime))
 	t.closed = true
 }
+
+// GetOrCreateSuite returns an existing suite or creates a new one with the given name.
 func (t *tslvTestModule) GetOrCreateSuite(name string) DdTestSuite {
 	return t.GetOrCreateSuiteWithStartTime(name, time.Now())
 }
+
+// GetOrCreateSuiteWithStartTime returns an existing suite or creates a new one with the given name and start time.
 func (t *tslvTestModule) GetOrCreateSuiteWithStartTime(name string, startTime time.Time) DdTestSuite {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

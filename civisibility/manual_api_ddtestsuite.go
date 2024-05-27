@@ -19,8 +19,10 @@ import (
 
 // Test Suite
 
+// Ensures that tslvTestSuite implements the DdTestSuite interface.
 var _ DdTestSuite = (*tslvTestSuite)(nil)
 
+// tslvTestSuite implements the DdTestSuite interface and represents a suite of tests within a module.
 type tslvTestSuite struct {
 	ciVisibilityCommon
 	module  *tslvTestModule
@@ -28,6 +30,7 @@ type tslvTestSuite struct {
 	name    string
 }
 
+// createTestSuite initializes a new test suite within a given module.
 func createTestSuite(module *tslvTestModule, name string, startTime time.Time) DdTestSuite {
 	if module == nil {
 		return nil
@@ -40,7 +43,7 @@ func createTestSuite(module *tslvTestModule, name string, startTime time.Time) D
 
 	resourceName := name
 
-	// suite tags should include also the module and session tags so the backend can calculate the module and session fingerprint from the suite
+	// Suite tags should include module and session tags so the backend can calculate the module and session fingerprint from the suite.
 	suiteTags := append(module.tags, tracer.Tag(constants.TestSuite, name))
 	testOpts := append(fillCommonTags([]tracer.StartSpanOption{
 		tracer.ResourceName(resourceName),
@@ -68,16 +71,22 @@ func createTestSuite(module *tslvTestModule, name string, startTime time.Time) D
 		},
 	}
 
-	// We need to ensure to close everything before ci visibility is exiting.
-	// In ci visibility mode we try to never lose data
+	// Ensure to close everything before CI visibility exits. In CI visibility mode, we try to never lose data.
 	internal.PushCiVisibilityCloseAction(func() { suite.Close() })
 
 	return suite
 }
 
-func (t *tslvTestSuite) Name() string         { return t.name }
+// Name returns the name of the test suite.
+func (t *tslvTestSuite) Name() string { return t.name }
+
+// Module returns the module to which the test suite belongs.
 func (t *tslvTestSuite) Module() DdTestModule { return t.module }
-func (t *tslvTestSuite) Close()               { t.CloseWithFinishTime(time.Now()) }
+
+// Close closes the test suite and sets the finish time to the current time.
+func (t *tslvTestSuite) Close() { t.CloseWithFinishTime(time.Now()) }
+
+// CloseWithFinishTime closes the test suite with the given finish time.
 func (t *tslvTestSuite) CloseWithFinishTime(finishTime time.Time) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -88,17 +97,25 @@ func (t *tslvTestSuite) CloseWithFinishTime(finishTime time.Time) {
 	t.span.Finish(tracer.FinishTime(finishTime))
 	t.closed = true
 }
+
+// SetError sets an error on the test suite and marks the module as having an error.
 func (t *tslvTestSuite) SetError(err error) {
 	t.ciVisibilityCommon.SetError(err)
 	t.Module().SetTag(ext.Error, true)
 }
+
+// SetErrorInfo sets detailed error information on the test suite and marks the module as having an error.
 func (t *tslvTestSuite) SetErrorInfo(errType string, message string, callstack string) {
 	t.ciVisibilityCommon.SetErrorInfo(errType, message, callstack)
 	t.Module().SetTag(ext.Error, true)
 }
+
+// CreateTest creates a new test with the given name and sets the start time to the current time.
 func (t *tslvTestSuite) CreateTest(name string) DdTest {
 	return t.CreateTestWithStartTime(name, time.Now())
 }
+
+// CreateTestWithStartTime creates a new test with the given name and start time.
 func (t *tslvTestSuite) CreateTestWithStartTime(name string, startTime time.Time) DdTest {
 	return createTest(t, name, startTime)
 }
