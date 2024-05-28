@@ -83,7 +83,7 @@ func (t *tslvTest) Name() string { return t.name }
 func (t *tslvTest) Suite() DdTestSuite { return t.suite }
 
 // Close closes the test with the given status and sets the finish time to the current time.
-func (t *tslvTest) Close(status TestResultStatus) { t.CloseWithFinishTime(status, time.Now()) }
+func (t *tslvTest) Close(status TestResultStatus) { t.CloseWithFinishTime(status, nowTime()) }
 
 // CloseWithFinishTime closes the test with the given status and finish time.
 func (t *tslvTest) CloseWithFinishTime(status TestResultStatus, finishTime time.Time) {

@@ -100,7 +100,7 @@ func (t *tslvTestModule) Framework() string { return t.framework }
 func (t *tslvTestModule) Session() DdTestSession { return t.session }
 
 // Close closes the test module and sets the finish time to the current time.
-func (t *tslvTestModule) Close() { t.CloseWithFinishTime(time.Now()) }
+func (t *tslvTestModule) Close() { t.CloseWithFinishTime(nowTime()) }
 
 // CloseWithFinishTime closes the test module with the given finish time.
 func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
@@ -121,7 +121,7 @@ func (t *tslvTestModule) CloseWithFinishTime(finishTime time.Time) {
 
 // GetOrCreateSuite returns an existing suite or creates a new one with the given name.
 func (t *tslvTestModule) GetOrCreateSuite(name string) DdTestSuite {
-	return t.GetOrCreateSuiteWithStartTime(name, time.Now())
+	return t.GetOrCreateSuiteWithStartTime(name, nowTime())
 }
 
 // GetOrCreateSuiteWithStartTime returns an existing suite or creates a new one with the given name and start time.

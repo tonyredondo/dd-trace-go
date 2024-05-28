@@ -10,12 +10,18 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	_ "unsafe"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
 )
+
+// Use the high precision  timer included in the ddtrace package
+//
+//go:linkname nowTime gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.nowTime
+var nowTime func() time.Time
 
 // TestResultStatus represents the result status of a test.
 type TestResultStatus int

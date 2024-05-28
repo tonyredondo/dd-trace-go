@@ -84,7 +84,7 @@ func (t *tslvTestSuite) Name() string { return t.name }
 func (t *tslvTestSuite) Module() DdTestModule { return t.module }
 
 // Close closes the test suite and sets the finish time to the current time.
-func (t *tslvTestSuite) Close() { t.CloseWithFinishTime(time.Now()) }
+func (t *tslvTestSuite) Close() { t.CloseWithFinishTime(nowTime()) }
 
 // CloseWithFinishTime closes the test suite with the given finish time.
 func (t *tslvTestSuite) CloseWithFinishTime(finishTime time.Time) {
@@ -112,7 +112,7 @@ func (t *tslvTestSuite) SetErrorInfo(errType string, message string, callstack s
 
 // CreateTest creates a new test with the given name and sets the start time to the current time.
 func (t *tslvTestSuite) CreateTest(name string) DdTest {
-	return t.CreateTestWithStartTime(name, time.Now())
+	return t.CreateTestWithStartTime(name, nowTime())
 }
 
 // CreateTestWithStartTime creates a new test with the given name and start time.

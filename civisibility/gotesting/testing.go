@@ -84,7 +84,6 @@ func (ddm *M) Run() int {
 	ddm.instrumentInternalTests(getInternalTestArray(m))
 
 	// Instrument the internal benchmarks for CI visibility.
-	fmt.Println(os.Args)
 	for _, v := range os.Args {
 		// check if benchmarking is enabled to instrument
 		if strings.Contains(v, "-bench") || strings.Contains(v, "test.bench") {

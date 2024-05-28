@@ -51,7 +51,7 @@ func CreateTestSession() DdTestSession {
 	if err == nil {
 		wd = utils.GetRelativePathFromCiTagsSourceRoot(wd)
 	}
-	return CreateTestSessionWith(cmd, wd, "", time.Now())
+	return CreateTestSessionWith(cmd, wd, "", nowTime())
 }
 
 // CreateTestSessionWith initializes a new test session with specified command, working directory, framework, and start time.
@@ -112,7 +112,7 @@ func (t *tslvTestSession) Framework() string { return t.framework }
 func (t *tslvTestSession) WorkingDirectory() string { return t.workingDirectory }
 
 // Close closes the test session with the given exit code and sets the finish time to the current time.
-func (t *tslvTestSession) Close(exitCode int) { t.CloseWithFinishTime(exitCode, time.Now()) }
+func (t *tslvTestSession) Close(exitCode int) { t.CloseWithFinishTime(exitCode, nowTime()) }
 
 // CloseWithFinishTime closes the test session with the given exit code and finish time.
 func (t *tslvTestSession) CloseWithFinishTime(exitCode int, finishTime time.Time) {
@@ -148,7 +148,7 @@ func (t *tslvTestSession) GetOrCreateModule(name string) DdTestModule {
 
 // GetOrCreateModuleWithFramework returns an existing module or creates a new one with the given name, framework, and framework version.
 func (t *tslvTestSession) GetOrCreateModuleWithFramework(name string, framework string, frameworkVersion string) DdTestModule {
-	return t.GetOrCreateModuleWithFrameworkAndStartTime(name, framework, frameworkVersion, time.Now())
+	return t.GetOrCreateModuleWithFrameworkAndStartTime(name, framework, frameworkVersion, nowTime())
 }
 
 // GetOrCreateModuleWithFrameworkAndStartTime returns an existing module or creates a new one with the given name, framework, framework version, and start time.
