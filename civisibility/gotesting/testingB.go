@@ -101,8 +101,6 @@ func (ddb *B) Run(name string, f func(*testing.B)) bool {
 				}
 			}()
 
-			// Enable allocations reporting.
-			b.ReportAllocs()
 			// First time we get the private fields of the inner testing.B.
 			iPfOfB = getBenchmarkPrivateFields(b)
 			// Replace this function with the original one (executed only once - the first iteration[b.run1]).
