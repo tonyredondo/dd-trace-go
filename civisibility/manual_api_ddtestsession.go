@@ -42,11 +42,14 @@ func CreateTestSession() DdTestSession {
 	if len(os.Args) == 1 {
 		cmd = filepath.Base(os.Args[0])
 	} else {
-		cmd = fmt.Sprintf("%s %s", filepath.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
+		cmd = fmt.Sprintf("%s %s ", filepath.Base(os.Args[0]), strings.Join(os.Args[1:], " "))
 	}
 
-	// Filter out the random gocoverdir when coverage is enabled to make the command more stable.
+	// Filter out some parameters to make the command more stable.
 	cmd = regexp.MustCompile(`(?si)-test.gocoverdir=(.*)\s`).ReplaceAllString(cmd, "")
+	cmd = regexp.MustCompile(`(?si)-test.v=(.*)\s`).ReplaceAllString(cmd, "")
+	cmd = regexp.MustCompile(`(?si)-test.testlogfile=(.*)\s`).ReplaceAllString(cmd, "")
+	cmd = strings.TrimSpace(cmd)
 	wd, err := os.Getwd()
 	if err == nil {
 		wd = utils.GetRelativePathFromCiTagsSourceRoot(wd)
