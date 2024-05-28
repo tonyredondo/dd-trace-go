@@ -149,7 +149,7 @@ func (ddb *B) Run(name string, f func(*testing.B)) bool {
 
 		// Define a function to handle panic during benchmark finalization.
 		panicFunc := func(r any) {
-			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(1))
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
 			test.Close(civisibility.ResultStatusFail)
@@ -192,7 +192,7 @@ func (ddb *B) Fail() {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(1))
 	}
 
 	b.Fail()
@@ -208,7 +208,7 @@ func (ddb *B) FailNow() {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(1))
 	}
 
 	internal.ExitCiVisibility()
@@ -220,7 +220,7 @@ func (ddb *B) Error(args ...any) {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(1))
 	}
 
 	b.Error(args...)
@@ -231,7 +231,7 @@ func (ddb *B) Errorf(format string, args ...any) {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(1))
 	}
 
 	b.Errorf(format, args...)
@@ -242,7 +242,7 @@ func (ddb *B) Fatal(args ...any) {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(1))
 	}
 
 	b.Fatal(args...)
@@ -253,7 +253,7 @@ func (ddb *B) Fatalf(format string, args ...any) {
 	b := (*testing.B)(ddb)
 	ciTest := getCiVisibilityBenchmark(b)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(1))
 	}
 
 	b.Fatalf(format, args...)

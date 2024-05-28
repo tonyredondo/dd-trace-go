@@ -67,7 +67,7 @@ func GetModuleAndSuiteName(pc uintptr) (module string, suite string) {
 //	A string representation of the current stack trace, with each frame on a new line.
 func GetStacktrace(skip int) string {
 	pcs := make([]uintptr, 256)
-	total := runtime.Callers(skip+1, pcs)
+	total := runtime.Callers(skip+2, pcs)
 	frames := runtime.CallersFrames(pcs[:total])
 	buffer := new(bytes.Buffer)
 	for {

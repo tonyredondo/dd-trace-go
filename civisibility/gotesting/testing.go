@@ -171,7 +171,7 @@ func (ddm *M) executeInternalTest(testInfo *testingTInfo) func(*testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Handle panic and set error information.
-				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(1))
 				suite.SetTag(ext.Error, true)
 				module.SetTag(ext.Error, true)
 				test.Close(civisibility.ResultStatusFail)
@@ -325,7 +325,7 @@ func (ddm *M) executeInternalBenchmark(benchmarkInfo *testingBInfo) func(*testin
 
 		// Define a function to handle panic during benchmark finalization.
 		panicFunc := func(r any) {
-			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+			test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(1))
 			suite.SetTag(ext.Error, true)
 			module.SetTag(ext.Error, true)
 			test.Close(civisibility.ResultStatusFail)

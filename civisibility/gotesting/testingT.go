@@ -67,7 +67,7 @@ func (ddt *T) Run(name string, f func(*testing.T)) bool {
 		defer func() {
 			if r := recover(); r != nil {
 				// Handle panic and set error information.
-				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(2))
+				test.SetErrorInfo("panic", fmt.Sprint(r), utils.GetStacktrace(1))
 				test.Close(civisibility.ResultStatusFail)
 				checkModuleAndSuite(module, suite)
 				internal.ExitCiVisibility()
@@ -111,7 +111,7 @@ func (ddt *T) Fail() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Fail", "failed test", utils.GetStacktrace(1))
 	}
 
 	t.Fail()
@@ -127,7 +127,7 @@ func (ddt *T) FailNow() {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("FailNow", "failed test", utils.GetStacktrace(1))
 	}
 
 	t.FailNow()
@@ -138,7 +138,7 @@ func (ddt *T) Error(args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Error", fmt.Sprint(args...), utils.GetStacktrace(1))
 	}
 
 	t.Error(args...)
@@ -149,7 +149,7 @@ func (ddt *T) Errorf(format string, args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Errorf", fmt.Sprintf(format, args...), utils.GetStacktrace(1))
 	}
 
 	t.Errorf(format, args...)
@@ -160,7 +160,7 @@ func (ddt *T) Fatal(args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Fatal", fmt.Sprint(args...), utils.GetStacktrace(1))
 	}
 
 	t.Fatal(args...)
@@ -171,7 +171,7 @@ func (ddt *T) Fatalf(format string, args ...any) {
 	t := (*testing.T)(ddt)
 	ciTest := getCiVisibilityTest(t)
 	if ciTest != nil {
-		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(2))
+		ciTest.SetErrorInfo("Fatalf", fmt.Sprintf(format, args...), utils.GetStacktrace(1))
 	}
 
 	t.Fatalf(format, args...)
