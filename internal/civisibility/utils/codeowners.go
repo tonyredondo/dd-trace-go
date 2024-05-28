@@ -15,10 +15,18 @@ import (
 	logger "gopkg.in/DataDog/dd-trace-go.v1/internal/log"
 )
 
+// This is a port of https://github.com/DataDog/dd-trace-dotnet/blob/v2.52.0/tracer/src/Datadog.Trace/Ci/CodeOwners.cs
+
 // CodeOwners represents a structured data type that holds sections of code owners.
 // Each section maps to a slice of entries, where each entry includes a pattern and a list of owners.
 type CodeOwners struct {
-	Sections map[string][]Entry
+	Sections []*Section
+}
+
+// Section represents a block of structured data of multiple entries in a single section
+type Section struct {
+	Name    string
+	Entries []Entry
 }
 
 // Entry represents a single entry in a CODEOWNERS file.
@@ -105,13 +113,25 @@ func NewCodeOwners(filePath string) (*CodeOwners, error) {
 		entriesList[i], entriesList[j] = entriesList[j], entriesList[i]
 	}
 
-	// Group entries by section
-	sections := make(map[string][]Entry)
+	codeOwners := &CodeOwners{}
 	for _, entry := range entriesList {
-		sections[entry.Section] = append(sections[entry.Section], entry)
+		var section *Section
+		for _, val := range codeOwners.Sections {
+			if val.Name == entry.Section {
+				section = val
+				break
+			}
+		}
+
+		if section == nil {
+			section = &Section{Name: entry.Section, Entries: []Entry{}}
+			codeOwners.Sections = append(codeOwners.Sections, section)
+		}
+
+		section.Entries = append(section.Entries, entry)
 	}
 
-	return &CodeOwners{Sections: sections}, nil
+	return codeOwners, nil
 }
 
 // findSectionIgnoreCase searches for a section name in a case-insensitive manner.
@@ -126,13 +146,25 @@ func findSectionIgnoreCase(sections []string, section string) string {
 	return ""
 }
 
+// GetSection gets the first Section entry in the CodeOwners that matches the section name.
+// It returns a pointer to the matched entry, or nil if no match is found
+func (co *CodeOwners) GetSection(section string) *Section {
+	for _, value := range co.Sections {
+		if value.Name == section {
+			return value
+		}
+	}
+
+	return nil
+}
+
 // Match finds the first entry in the CodeOwners that matches the given value.
 // It returns a pointer to the matched entry, or nil if no match is found.
 func (co *CodeOwners) Match(value string) *Entry {
 	var matchedEntries []Entry
 
 	for _, section := range co.Sections {
-		for _, entry := range section {
+		for _, entry := range section.Entries {
 			pattern := entry.Pattern
 			finalPattern := pattern
 
