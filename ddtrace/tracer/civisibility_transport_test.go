@@ -17,17 +17,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 )
 
-func getCiVisibilityEvents(payload [][]*span) ciVisibilityEvents {
-	var events ciVisibilityEvents
-	for _, trace := range payload {
-		for _, span := range trace {
-			events = append(events, getCiVisibilityEvent(span))
-		}
-	}
-
-	return events
-}
-
 func TestCiVisibilityTransport(t *testing.T) {
 	assert := assert.New(t)
 
