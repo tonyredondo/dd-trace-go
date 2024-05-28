@@ -13,6 +13,7 @@ import (
 	"sync"
 	"syscall"
 
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/constants"
 	"gopkg.in/DataDog/dd-trace-go.v1/internal/civisibility/utils"
@@ -30,32 +31,16 @@ var (
 
 	// closeActionsMutex synchronizes access to closeActions.
 	closeActionsMutex sync.Mutex
+
+	// mTracer contains the mock tracer instance for testing purposes
+	mTracer mocktracer.Tracer
 )
 
 // EnsureCiVisibilityInitialization initializes the CI visibility tracer if it hasn't been initialized already.
 func EnsureCiVisibilityInitialization() {
 	ciVisibilityInitializationOnce.Do(func() {
-
-		// Since calling this method indicates we are in CI Visibility mode, set the environment variable.
-		_ = os.Setenv(constants.CiVisibilityEnabledEnvironmnetVariable, "1")
-
-		// Preload all CI, Git, and CodeOwners tags.
-		ciTags := utils.GetCiTags()
-		_ = utils.GetCodeOwners()
-
-		// Check if DD_SERVICE has been set; otherwise default to the repo name.
-		var opts []tracer.StartOption
-		if v := os.Getenv("DD_SERVICE"); v == "" {
-			if repoUrl, ok := ciTags[constants.GitRepositoryURL]; ok {
-				// regex to sanitize the repository url to be used as a service name
-				repoRegex := regexp.MustCompile(`(?m)/([a-zA-Z0-9\\\-_.]*)$`)
-				matches := repoRegex.FindStringSubmatch(repoUrl)
-				if len(matches) > 1 {
-					repoUrl = strings.TrimSuffix(matches[1], ".git")
-				}
-				opts = append(opts, tracer.WithService(repoUrl))
-			}
-		}
+		// Initialize ci visibility tags
+		opts := initCiVisibilityTags()
 
 		// Initialize the tracer.
 		tracer.Start(opts...)
@@ -69,6 +54,52 @@ func EnsureCiVisibilityInitialization() {
 			os.Exit(1)
 		}()
 	})
+}
+
+func InitializeCiVisibilityMock() mocktracer.Tracer {
+	ciVisibilityInitializationOnce.Do(func() {
+		// Initialize ci visibility tags
+		_ = initCiVisibilityTags()
+
+		// Initialize the mocktracer
+		mTracer = mocktracer.Start()
+
+		// Handle SIGINT and SIGTERM signals.
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			<-signals
+			ExitCiVisibility()
+			os.Exit(1)
+		}()
+	})
+
+	return mTracer
+}
+
+func initCiVisibilityTags() []tracer.StartOption {
+	// Since calling this method indicates we are in CI Visibility mode, set the environment variable.
+	_ = os.Setenv(constants.CiVisibilityEnabledEnvironmnetVariable, "1")
+
+	// Preload all CI, Git, and CodeOwners tags.
+	ciTags := utils.GetCiTags()
+	_ = utils.GetCodeOwners()
+
+	// Check if DD_SERVICE has been set; otherwise default to the repo name.
+	var opts []tracer.StartOption
+	if v := os.Getenv("DD_SERVICE"); v == "" {
+		if repoUrl, ok := ciTags[constants.GitRepositoryURL]; ok {
+			// regex to sanitize the repository url to be used as a service name
+			repoRegex := regexp.MustCompile(`(?m)/([a-zA-Z0-9\\\-_.]*)$`)
+			matches := repoRegex.FindStringSubmatch(repoUrl)
+			if len(matches) > 1 {
+				repoUrl = strings.TrimSuffix(matches[1], ".git")
+			}
+			opts = append(opts, tracer.WithService(repoUrl))
+		}
+	}
+
+	return opts
 }
 
 // PushCiVisibilityCloseAction adds a close action to be executed when CI visibility exits.
