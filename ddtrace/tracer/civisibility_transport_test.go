@@ -7,6 +7,7 @@ package tracer
 
 import (
 	"bytes"
+	"compress/gzip"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,11 +45,19 @@ func TestCiVisibilityTransport(t *testing.T) {
 		assert.True(strings.HasSuffix(r.RequestURI, TestCyclePath))
 
 		bodyBuffer := new(bytes.Buffer)
-		_, err := bodyBuffer.ReadFrom(r.Body)
-		assert.NoError(err)
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			gzipReader, err := gzip.NewReader(r.Body)
+			assert.NoError(err)
+
+			_, err = bodyBuffer.ReadFrom(gzipReader)
+			assert.NoError(err)
+		} else {
+			_, err := bodyBuffer.ReadFrom(r.Body)
+			assert.NoError(err)
+		}
 
 		var testCyclePayload ciTestCyclePayload
-		err = msgp.Decode(bodyBuffer, &testCyclePayload)
+		err := msgp.Decode(bodyBuffer, &testCyclePayload)
 		assert.NoError(err)
 
 		var events ciVisibilityEvents

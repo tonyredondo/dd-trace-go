@@ -6,6 +6,8 @@
 package tracer
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -122,14 +124,27 @@ func (t *civisibilityTransport) send(p *payload) (body io.ReadCloser, err error)
 		return nil, fmt.Errorf("cannot create buffer payload: %v", bufferErr)
 	}
 
-	req, err := http.NewRequest("POST", t.testCycleUrlPath, buffer)
+	// Compress payload
+	var gzipBuffer bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzipBuffer)
+	_, err = io.Copy(gzipWriter, buffer)
+	if err != nil {
+		return nil, fmt.Errorf("cannot compress request body: %v", err)
+	}
+	err = gzipWriter.Close()
+	if err != nil {
+		return nil, fmt.Errorf("cannot compress request body: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", t.testCycleUrlPath, &gzipBuffer)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create http request: %v", err)
 	}
 	for header, value := range t.headers {
 		req.Header.Set(header, value)
 	}
-	req.Header.Set("Content-Length", strconv.Itoa(p.size()))
+	req.Header.Set("Content-Length", strconv.Itoa(gzipBuffer.Len()))
+	req.Header.Set("Content-Encoding", "gzip")
 	response, err := t.client.Do(req)
 	if err != nil {
 		return nil, err
