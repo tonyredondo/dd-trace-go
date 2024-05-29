@@ -34,6 +34,8 @@ type SSpan struct {
 func TestMain(om *testing.M) {
 	// Initialize civisibility using the mocktracer for testing
 	tracer = civisibility.InitializeCiVisibilityMock()
+
+	// Run tests using the mocked version of CI Visibility
 	m := (*gotesting.M)(om)
 	os.Exit(m.Run())
 }
@@ -52,12 +54,18 @@ func TestDummyTestForMocking(ot *testing.T) {
 	})
 }
 
+// TestAssertMock ensures that the mock spans are correct.
 func TestAssertMock(t *testing.T) {
+
+	// Retrieve the finished spans from the mock tracer
 	spans := tracer.FinishedSpans()
+
+	// Fail the test if no spans are found
 	if len(spans) == 0 {
 		t.Error("No mock spans found")
 	}
 
+	// Convert the spans to a serializable structure
 	serializableSpans := make([]SSpan, len(spans))
 	for i, span := range spans {
 		serializableSpans[i] = SSpan{
@@ -71,6 +79,7 @@ func TestAssertMock(t *testing.T) {
 		}
 	}
 
+	// Match the serializable spans with an expected snapshot, ignoring certain dynamic fields
 	snaps.MatchJSON(t, serializableSpans,
 		match.Any(
 			"#.StartTime",

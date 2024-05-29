@@ -16,6 +16,7 @@ import (
 	ddtracer "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
+// TestMain is the entry point for testing and runs before any test.
 func TestMain(m *testing.M) {
 
 	// (*M)(m).Run() cast m to gotesting.M and just run
@@ -25,9 +26,11 @@ func TestMain(m *testing.M) {
 	os.Exit(RunM(m))
 }
 
+// TestMyTest02 demonstrates instrumentation of InternalTests
 func TestMyTest01(t *testing.T) {
 }
 
+// TestMyTest02 demonstrates instrumentation of sub-tests.
 func TestMyTest02(gt *testing.T) {
 
 	// To instrument subTests we just need to cast
@@ -39,7 +42,7 @@ func TestMyTest02(gt *testing.T) {
 	t = GetTest(gt)
 
 	t.Run("sub01", func(oT2 *testing.T) {
-		t2 := (*T)(oT2)
+		t2 := (*T)(oT2) // Cast the sub-test to gotesting.T
 		t2.Log("From sub01")
 		t2.Run("sub03", func(t3 *testing.T) {
 			t3.Log("From sub03")
@@ -65,9 +68,11 @@ func Test_Foo(gt *testing.T) {
 	}
 }
 
+// TestWithExternalCalls demonstrates testing with external HTTP calls.
 func TestWithExternalCalls(oT *testing.T) {
 	t := (*T)(oT)
 
+	// Create a new HTTP test server
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Hello World"))
 	}))
@@ -79,11 +84,13 @@ func TestWithExternalCalls(oT *testing.T) {
 		// we can extract the SpanContext and use it in other integrations
 		ctx := (*T)(t).Context()
 
+		// Wrap the default HTTP transport for tracing
 		rt := ddhttp.WrapRoundTripper(http.DefaultTransport)
 		client := &http.Client{
 			Transport: rt,
 		}
 
+		// Create a new HTTP request
 		req, err := http.NewRequest("GET", s.URL+"/hello/world", nil)
 		if err != nil {
 			t.FailNow()
@@ -102,6 +109,7 @@ func TestWithExternalCalls(oT *testing.T) {
 		ctx := (*T)(t).Context()
 		span, _ := ddtracer.SpanFromContext(ctx)
 
+		// Custom namer function for the HTTP request
 		customNamer := func(req *http.Request) string {
 			value := fmt.Sprintf("%s %s", req.Method, req.URL.Path)
 
@@ -127,6 +135,7 @@ func TestWithExternalCalls(oT *testing.T) {
 	})
 }
 
+// TestSkip demonstrates skipping a test with a message.
 func TestSkip(gt *testing.T) {
 	t := (*T)(gt)
 
@@ -135,6 +144,7 @@ func TestSkip(gt *testing.T) {
 	t.Skip("Nothing to do here, skipping!")
 }
 
+// BenchmarkFirst demonstrates benchmark instrumentation with sub-benchmarks.
 func BenchmarkFirst(gb *testing.B) {
 
 	// Same happens with sub benchmarks
